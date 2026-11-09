@@ -1,0 +1,263 @@
+{
+    "autostart": [
+        "dbus-update-activation-environment --systemd WAYLAND_DISPLAY XDG_CURRENT_DESKTOP",
+        "/usr/bin/gnome-keyring-daemon --start --components=secrets",
+        "flameshot",
+        "blip --background"
+    ],
+    "binds": [
+        {
+            "arg": "quickshell:launcher",
+            "keys": "SUPER + SUPER_L",
+            "kind": "global",
+            "release": true
+        },
+        {
+            "arg": "quickshell:clipboard",
+            "keys": "SUPER + V",
+            "kind": "global"
+        },
+        {
+            "arg": "quickshell:notes",
+            "keys": "SUPER + I",
+            "kind": "global"
+        },
+        {
+            "arg": "quickshell:settings",
+            "keys": "SUPER + Space",
+            "kind": "global"
+        },
+        {
+            "arg": "quickshell:themes",
+            "keys": "SUPER + T",
+            "kind": "global"
+        },
+        {
+            "arg": "",
+            "keys": "SUPER + P",
+            "kind": "pseudo"
+        },
+        {
+            "arg": "",
+            "keys": "SUPER + Q",
+            "kind": "close"
+        },
+        {
+            "arg": "hyprctl reload",
+            "keys": "SUPER + R",
+            "kind": "exec"
+        },
+        {
+            "arg": "",
+            "keys": "SUPER + J",
+            "kind": "split"
+        },
+        {
+            "arg": "",
+            "keys": "SUPER + F",
+            "kind": "float"
+        },
+        {
+            "arg": "kitty",
+            "keys": "SUPER + Return",
+            "kind": "exec"
+        },
+        {
+            "arg": "flameshot gui",
+            "keys": "Print",
+            "kind": "exec"
+        },
+        {
+            "arg": "hyprshot -m window",
+            "keys": "SHIFT + Print",
+            "kind": "exec"
+        },
+        {
+            "arg": "flameshot full -c",
+            "keys": "ALT + Print",
+            "kind": "exec"
+        },
+        {
+            "arg": "",
+            "keys": "SUPER + M",
+            "kind": "exit"
+        },
+        {
+            "arg": "loginctl lock-session",
+            "keys": "SUPER + L",
+            "kind": "exec"
+        },
+        {
+            "arg": "left",
+            "keys": "SUPER + left",
+            "kind": "focusDirection"
+        },
+        {
+            "arg": "right",
+            "keys": "SUPER + right",
+            "kind": "focusDirection"
+        },
+        {
+            "arg": "up",
+            "keys": "SUPER + up",
+            "kind": "focusDirection"
+        },
+        {
+            "arg": "down",
+            "keys": "SUPER + down",
+            "kind": "focusDirection"
+        },
+        {
+            "arg": "magic",
+            "keys": "SUPER + S",
+            "kind": "special"
+        },
+        {
+            "arg": "special:magic",
+            "keys": "SUPER + SHIFT + S",
+            "kind": "moveToWorkspace"
+        },
+        {
+            "arg": "e+1",
+            "keys": "SUPER + mouse_down",
+            "kind": "focusWorkspace"
+        },
+        {
+            "arg": "e-1",
+            "keys": "SUPER + mouse_up",
+            "kind": "focusWorkspace"
+        },
+        {
+            "arg": "",
+            "keys": "SUPER + mouse:272",
+            "kind": "drag",
+            "mouse": true
+        },
+        {
+            "arg": "",
+            "keys": "SUPER + mouse:273",
+            "kind": "resize",
+            "mouse": true
+        },
+        {
+            "arg": "qs ipc call power lid || (loginctl lock-session; sleep 0.4; systemctl suspend)",
+            "keys": "switch:on:Lid Switch",
+            "kind": "exec",
+            "locked": true
+        },
+        {
+            "arg": "wpctl set-volume -l 1 @DEFAULT_AUDIO_SINK@ 5%+",
+            "keys": "XF86AudioRaiseVolume",
+            "kind": "exec",
+            "locked": true,
+            "repeating": true
+        },
+        {
+            "arg": "wpctl set-volume @DEFAULT_AUDIO_SINK@ 5%-",
+            "keys": "XF86AudioLowerVolume",
+            "kind": "exec",
+            "locked": true,
+            "repeating": true
+        },
+        {
+            "arg": "wpctl set-mute @DEFAULT_AUDIO_SINK@ toggle",
+            "keys": "XF86AudioMute",
+            "kind": "exec",
+            "locked": true,
+            "repeating": true
+        },
+        {
+            "arg": "wpctl set-mute @DEFAULT_AUDIO_SOURCE@ toggle",
+            "keys": "XF86AudioMicMute",
+            "kind": "exec",
+            "locked": true,
+            "repeating": true
+        },
+        {
+            "arg": "qs ipc call brightness up",
+            "keys": "XF86MonBrightnessUp",
+            "kind": "exec",
+            "locked": true,
+            "repeating": true
+        },
+        {
+            "arg": "qs ipc call brightness down",
+            "keys": "XF86MonBrightnessDown",
+            "kind": "exec",
+            "locked": true,
+            "repeating": true
+        }
+    ],
+    "devices": [
+        {
+            "name": "epic-mouse-v1",
+            "sensitivity": -0.5
+        }
+    ],
+    "env": [
+        [
+            "QT_QPA_PLATFORMTHEME",
+            "qt6ct"
+        ],
+        [
+            "XCURSOR_SIZE",
+            "16"
+        ],
+        [
+            "HYPRCURSOR_SIZE",
+            "16"
+        ],
+        [
+            "XDG_RUNTIME_DIR",
+            "/run/user/1000"
+        ]
+    ],
+    "gestures": [
+        {
+            "action": "workspace",
+            "direction": "horizontal",
+            "fingers": 3
+        }
+    ],
+    "monitors": [
+        {
+            "mode": "1920x1080@60",
+            "output": "eDP-1",
+            "position": "0x0",
+            "scale": 1
+        }
+    ],
+    "options": {
+        "input:follow_mouse": 1,
+        "input:kb_layout": "us,ara",
+        "input:kb_model": "",
+        "input:kb_options": "grp:caps_toggle",
+        "input:kb_rules": "",
+        "input:kb_variant": "",
+        "input:sensitivity": 0,
+        "input:touchpad:natural_scroll": true,
+        "misc:key_press_enables_dpms": true,
+        "misc:mouse_move_enables_dpms": true
+    },
+    "windowRules": [
+        {
+            "effects": "suppress_event = \"maximize\"",
+            "match": {
+                "class": ".*"
+            },
+            "name": "suppress-maximize-events"
+        },
+        {
+            "effects": "float = true, pin = true, no_anim = true, border_size = 0, rounding = 0, move = { \"0\", \"0\" }, size = { \"monitor_w\", \"monitor_h\" }, fullscreen = true",
+            "match": {
+                "class": ".*[Ff]lameshot.*"
+            },
+            "name": "flameshot"
+        }
+    ],
+    "workspaceBinds": {
+        "enabled": true,
+        "focusMod": "SUPER",
+        "moveMod": "SUPER + SHIFT"
+    }
+}

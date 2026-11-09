@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir -p /tmp/claude-1000/-home-ayman--config-quickshell/b13c6046-e038-4e90-89ec-e2e6bf8e371b/scratchpad)",
+      "Bash(tar --exclude=__pycache__ -czf ~/.local/share/quickshell/backups/pre-round4-2026-11-08.tar.gz . ../hypr/hyprlock.conf)"
+    ]
+  }
+}

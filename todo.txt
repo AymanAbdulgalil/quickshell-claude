@@ -1,0 +1,82 @@
+Persistent across sessions. Remove items when done. Keep "Decisions waiting on Ayman" current.
+
+=== Decisions waiting on Ayman ===
+
+2. Bar sliders and settings page review (CLAUDE.md, Stage 3): "(assumed)" decisions not reviewed.
+3. Launcher, time panel, notifications, hotspot and VPN review (CLAUDE.md, Stage 5): "(assumed)" decisions not reviewed.
+5. Settings app review (CLAUDE.md, Stage 7).
+8. Stay on now survives shell restarts: if it still ends early, note the time and check: journalctl -t quickshell-stay-on. A dying battery still suspends (seen 2026-11-06).
+9. Notes review (CLAUDE.md, Stage 8): Shift+Tab, Ctrl+Enter in a table, and the other "(assumed)" choices.
+
+=== Waiting on Ayman to do or test ===
+
+- [ ] Earlier round, still untested: everything from the 2026-11-09 list (power panel, flameshot, notification buttons, refresh check marks, launcher fade, theme switcher labels, time panel).
+- [ ] Battery charging arrow and check mark while really charging (states were forced for a look only).
+- [ ] Notes with the real mouse: drag selected text out, drag an image in, drag a file in (path), Ctrl+click a link, click a check box, click a table cell, click below the last line, scroll bar drag, sideways scroll on a wide table.
+- [ ] Notes with real keys: Enter in lists, Ctrl+Enter, Shift+Enter in tables, Down on the last line, Alt+1 to 9, Shift+Tab, Alt+Z, Ctrl+Alt+R/C.
+- [ ] Bar on the left or right: switched live and back by script, looks right; build on it later as planned.
+
+- [ ] Print key with a panel open: the panel closes, flameshot gets the keyboard and covers the bar. A script could not finish this: the desktop portal asked for permission first.
+- [ ] Notes with real typing: styles appear as you type, the caret glides, table Tab and Enter, Ctrl+Z (the commands behind them passed a script).
+
+- [ ] Notes with real keys: Tab, Alt+arrows, Ctrl+L, Ctrl+Shift+Up/Down, and the styling keys (the commands behind them passed a script).
+- [ ] Log in: the screen should fade to the theme color, then the wallpaper fades in. Log in with a wrong password once too.
+- [ ] Notifications: a click runs the action; set a sender to Show only and Don't show.
+- [ ] Sound panel: switch output and input device.
+
+- [ ] If Hyprland ever dies again: note the time, and keep /run/user/1000/hypr/*/hyprland.log before rebooting (it is wiped). The 2026-11-08 crash left no report.
+
+- [ ] Login screen: language inside the field (the test preview has no keyboard list, so only the eye could be seen).
+- [ ] Lock screen: language at the bottom of the screen; click switches. Not locked to test.
+- [ ] Login screen: the restart arrow (the preview hides those buttons).
+- [ ] Super opens the launcher; Record a bare Super on a bind; dropdowns, steppers, curve handles with the mouse.
+
+- [ ] New Settings with real mouse and keys (tabs were opened by script, controls not clicked): steppers including hold to repeat, dropdowns, switches.
+- [ ] Keybinds: edit one, Record a combination, add and remove a bind; see it work at once.
+- [ ] Monitors, Input, Window rules, Startup: change something, then check it applied. All options: search and edit one in each tab.
+- [ ] Bar and panels: try density and text size; check nothing overflows, especially the bar.
+- [ ] Night mode on, then Super+R: the warm screen should stay (the shell now re-applies it; not tested live).
+- [ ] Log out and in once: the session now starts from the generated hyprland.lua (validated, and reloaded live, but not yet a fresh login).
+
+- [ ] Notes (real keys and mouse, only the commands were tested by script): typing, Esc, vim keys, Ctrl+V with an image,
+      drag an image or tab out, help button.
+- [ ] Super+T: arrows, Enter, search, click. Settings on Super+Space, float on Super+F.
+- [ ] Clipboard: Enter copies the selected entry (key handling changed; untested with a real key press).
+- [ ] Thunar (reopen it; it was closed by a test on 2026-11-07): monochrome icons; switch preset, they recolor live.
+- [ ] btop: open it, switch preset; colors follow.
+- [ ] VPN tab: rename and delete an imported file; it should stay off after a reboot now.
+- [ ] Notifications: connect a Bluetooth device or change networks with the panels closed.
+- [ ] Open the launcher, switch workspace with Super+number: the launcher closes, no jump back.
+- [ ] Clipboard: copy, close the source window, paste. Super+V, search, pin, QR on a link. Reboot: history stays.
+- [ ] Hotspot QR: scan with a phone.
+- [ ] Themes: try presets, wallpapers, colors from wallpaper, custom colors. Check a GTK and a Qt app. Lock the screen once
+      (hyprlock colors now come from a generated file; check it still looks right).
+- [ ] Build your own theme presets (three starters: My setup, Nord, Nord Sharp).
+
+- [ ] SUPER opens launcher and time panel (shortcut dispatched from a test, physical key not pressed).
+- [ ] Launcher: typing, arguments, arrow keys in all four directions, leading !, mouse clicks, gear.
+- [ ] Settings: Super+I, each tab, build a preset of your own; Super+T switcher; log out and in once to check the
+      startup wallpaper comes from the active preset.
+- [ ] Panels: expand and collapse a row, switch tabs; the card should grow and shrink smoothly, without a flash.
+- [ ] Camera: open a video call; the red camera should appear within a second. Mic turns red while recording.
+- [ ] GTK 4 / libadwaita apps (Nautilus and similar) take full colors only when started; check one.
+- [ ] Notification sound is audible (file plays, volume not heard).
+- [ ] Hotspot on with new settings; VPN file picker.
+- [ ] dunst is stopped and its user service masked. To go back: systemctl --user unmask dunst, and remove
+      NotificationPopups from shell.qml.
+
+- [ ] Network panel: connect with a password, wrong password message, forget, preference, hidden network, hotspot.
+- [ ] Bluetooth panel: pair a device, connect, disconnect, forget, the switches.
+
+=== Known limits, accepted ===
+
+- Sleep and hibernate can flicker on wake, with delayed input for a moment. See CLAUDE.md, Technical notes.
+
+=== Later ===
+
+- [ ] REMINDER FROM AYMAN: build on the left and right bar positions. They work now, as a straightforward stack of the same items.
+- [ ] Per-theme accent element: Ayman still wants this idea. The workspace marker is one slot for it (`Part`); Astroid was removed.
+- [ ] Ayman may declutter the bar again.
+
+- [ ] Show-password on the lock screen: hyprlock cannot reveal typed text. Only possible if hyprlock adds it.
+

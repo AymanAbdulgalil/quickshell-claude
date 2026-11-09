@@ -1,0 +1,244 @@
+{
+    "baseline": {
+    },
+    "presets": [
+        {
+            "colors": "wallpaper",
+            "dark": true,
+            "id": "mine",
+            "name": "Dream",
+            "wallpaper": "/home/ayman/.local/share/backgrounds/23.jpg"
+        },
+        {
+            "colors": "palette",
+            "id": "nord",
+            "name": "Nord",
+            "palette": "nord",
+            "wallpaper": "/home/ayman/.local/share/backgrounds/arctic_mountains.jpg"
+        },
+        {
+            "barGap": 6,
+            "colors": "custom",
+            "custom": {
+                "accent": "#1e66f5",
+                "accentAlt": "#7287fd",
+                "border": "#bcc0cc",
+                "caution": "#fe640b",
+                "dark": false,
+                "error": "#d20f39",
+                "foreground": "#4c4f69",
+                "foregroundStrong": "#1e2030",
+                "inactive": "#acb0be",
+                "info": "#179299",
+                "muted": "#6c6f85",
+                "onAccent": "#eff1f5",
+                "special": "#8839ef",
+                "success": "#40a02b",
+                "surface": "#eff1f5",
+                "surfaceHover": "#dce0e8",
+                "surfaceRaised": "#e6e9ef",
+                "warning": "#df8e1d"
+            },
+            "dark": false,
+            "hypr": {
+                "decoration:rounding": 6,
+                "general:gaps_in": 3,
+                "general:gaps_out": 6
+            },
+            "id": "nordSharp",
+            "name": "Paper",
+            "palette": "rosePine",
+            "wallpaper": "/home/ayman/.local/share/backgrounds/39.jpg",
+            "widgetRadius": 8
+        },
+        {
+            "barGap": 10,
+            "barPadding": 14,
+            "colors": "wallpaper",
+            "custom": {
+                "accent": "#1e66f5",
+                "accentAlt": "#7287fd",
+                "border": "#bcc0cc",
+                "caution": "#fe640b",
+                "dark": false,
+                "error": "#d20f39",
+                "foreground": "#4c4f69",
+                "foregroundStrong": "#1e2030",
+                "inactive": "#acb0be",
+                "info": "#179299",
+                "muted": "#6c6f85",
+                "onAccent": "#eff1f5",
+                "special": "#8839ef",
+                "success": "#40a02b",
+                "surface": "#eff1f5",
+                "surfaceHover": "#dce0e8",
+                "surfaceRaised": "#e6e9ef",
+                "warning": "#df8e1d"
+            },
+            "dark": true,
+            "hypr": {
+                "decoration:inactive_opacity": 0.85,
+                "decoration:rounding": 10,
+                "general:gaps_in": 5,
+                "general:gaps_out": 10
+            },
+            "id": "preset1793906702216",
+            "name": "Alive",
+            "palette": "everforest",
+            "wallpaper": "/home/ayman/.local/share/backgrounds/wallhaven-g79g17_1920x1080.png",
+            "widgetRadius": 16
+        },
+        {
+            "barGap": 10,
+            "barGroupSpacing": 22,
+            "barItemSpacing": 8,
+            "barPadding": 12,
+            "barPosition": "top",
+            "colors": "palette",
+            "curves": [
+                {
+                    "name": "easeOutQuint",
+                    "x1": 0.23,
+                    "x2": 0.32,
+                    "y1": 1,
+                    "y2": 1
+                },
+                {
+                    "name": "easeInOutCubic",
+                    "x1": 0.65,
+                    "x2": 0.36,
+                    "y1": 0.05,
+                    "y2": 1
+                },
+                {
+                    "name": "linear",
+                    "x1": 0,
+                    "x2": 1,
+                    "y1": 0,
+                    "y2": 1
+                },
+                {
+                    "name": "almostLinear",
+                    "x1": 0.5,
+                    "x2": 0.75,
+                    "y1": 0.5,
+                    "y2": 1
+                },
+                {
+                    "name": "quick",
+                    "x1": 0.15,
+                    "x2": 0.1,
+                    "y1": 0,
+                    "y2": 1
+                }
+            ],
+            "custom": {
+                "accent": "#1e66f5",
+                "accentAlt": "#7287fd",
+                "border": "#bcc0cc",
+                "caution": "#fe640b",
+                "dark": false,
+                "error": "#d20f39",
+                "foreground": "#4c4f69",
+                "foregroundStrong": "#1e2030",
+                "inactive": "#acb0be",
+                "info": "#179299",
+                "muted": "#6c6f85",
+                "onAccent": "#eff1f5",
+                "special": "#8839ef",
+                "success": "#40a02b",
+                "surface": "#272a1b",
+                "surfaceHover": "#dce0e8",
+                "surfaceRaised": "#e6e9ef",
+                "warning": "#df8e1d"
+            },
+            "dark": true,
+            "hypr": {
+                "decoration:rounding": 0,
+                "general:gaps_in": 7,
+                "general:gaps_out": 10
+            },
+            "id": "preset1793941087895",
+            "name": "Deep",
+            "palette": "everforest",
+            "panelBarGap": 8,
+            "wallpaper": "/home/ayman/.local/share/backgrounds/49.jpg",
+            "widgetRadius": 0
+        },
+        {
+            "barGroupSpacing": 18,
+            "barHeight": 28,
+            "barItemSpacing": 4,
+            "barPadding": 12,
+            "colors": "palette",
+            "cursorSize": 16,
+            "cursorTheme": "Adwaita",
+            "curves": [
+                {
+                    "name": "easeOutQuint",
+                    "x1": 0.23,
+                    "x2": 0.32,
+                    "y1": 1,
+                    "y2": 1
+                },
+                {
+                    "name": "easeInOutCubic",
+                    "x1": 0.65,
+                    "x2": 0.36,
+                    "y1": 0.05,
+                    "y2": 1
+                },
+                {
+                    "name": "linear",
+                    "x1": 0,
+                    "x2": 1,
+                    "y1": 0,
+                    "y2": 1
+                },
+                {
+                    "name": "almostLinear",
+                    "x1": 0,
+                    "x2": 0.67,
+                    "y1": 0.72,
+                    "y2": 1
+                },
+                {
+                    "name": "quick",
+                    "x1": 0.15,
+                    "x2": 0.1,
+                    "y1": 0,
+                    "y2": 1
+                }
+            ],
+            "dark": true,
+            "density": 1,
+            "fadeFocused": 0.5,
+            "fadeUnfocused": 0.5,
+            "fontBar": 12,
+            "fontDisplay": 24,
+            "fontSmall": 12,
+            "fontWeight": 400,
+            "hypr": {
+                "animations:enabled": true,
+                "decoration:active_opacity": 1,
+                "decoration:blur:enabled": false,
+                "decoration:dim_inactive": false,
+                "decoration:inactive_opacity": 0.75,
+                "decoration:rounding": 12,
+                "decoration:rounding_power": 2,
+                "decoration:shadow:enabled": true,
+                "decoration:shadow:range": 18,
+                "general:border_size": 1,
+                "general:layout": "dwindle"
+            },
+            "id": "preset1794126497295",
+            "motionScale": 1.5,
+            "name": "Alp",
+            "palette": "nord",
+            "panelBorder": 1,
+            "panelSpeed": 300,
+            "wallpaper": "/home/ayman/.local/share/backgrounds/5748285.jpg",
+            "widgetRadius": 14
+        }
+    ]
+}
