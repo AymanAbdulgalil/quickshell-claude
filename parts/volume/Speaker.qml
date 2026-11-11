@@ -1,9 +1,11 @@
 import QtQuick
 import "../.."
 
-// Speaker with one to three waves by level. Muted adds a slash.
+// Speaker with one to three waves by level. Muted adds a slash. Filled: a solid speaker, the waves stay lines.
 // Inputs: level (0 to 1), tint, iconSize, off (muted)
 Canvas {
+    readonly property var iconWatch: [Theme.icons.style]
+    onIconWatchChanged: requestPaint()
     // Colors below come from the theme, so repaint when it changes.
     readonly property var themeWatch: Theme.palette
     onThemeWatchChanged: requestPaint()
@@ -39,7 +41,7 @@ Canvas {
         ctx.translate(-8, -8);
         ctx.strokeStyle = tint;
         ctx.fillStyle = tint;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Theme.icons.stroke;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
 
@@ -52,6 +54,8 @@ Canvas {
         ctx.lineTo(3.8, 11);
         ctx.lineTo(0.8, 11);
         ctx.closePath();
+        if (Theme.icons.filled)
+            ctx.fill();
         ctx.stroke();
 
         for (let i = 0; i < waves; i++) {

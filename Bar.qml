@@ -13,6 +13,8 @@ import "theming"
 import "settings"
 import "notes"
 import "hyprland"
+import "tasks"
+import "timer"
 
 Variants {
     model: Quickshell.screens
@@ -26,6 +28,8 @@ Variants {
         implicitHeight: Theme.layout.barVertical ? 0 : Theme.layout.barHeight
         implicitWidth: Theme.layout.barVertical ? Theme.layout.barHeight : 0
         color: "transparent"
+        // Windows keep clear of the bar and of its inner gap. Hyprland adds the edge gap (the margin) itself.
+        exclusiveZone: Theme.layout.barHeight + Theme.layout.barGapInner
 
         anchors {
             top: Theme.layout.barEdge !== "bottom"
@@ -34,19 +38,41 @@ Variants {
             right: Theme.layout.barEdge !== "left"
         }
 
+        // Each side has its own gap: the screen edge the bar is on, and its two ends. The side facing the windows
+        // has no margin; its gap is in the exclusive zone.
         margins {
-            top: Theme.layout.barEdge === "bottom" ? 0 : Theme.layout.barMargin
-            bottom: Theme.layout.barEdge === "top" ? 0 : Theme.layout.barMargin
-            left: Theme.layout.barEdge === "right" ? 0 : Theme.layout.barMargin
-            right: Theme.layout.barEdge === "left" ? 0 : Theme.layout.barMargin
+            top: Theme.layout.barEdge === "top" ? Theme.layout.barGapEdge : Theme.layout.barVertical ? Theme.layout.barGapStart : 0
+            bottom: Theme.layout.barEdge === "bottom" ? Theme.layout.barGapEdge : Theme.layout.barVertical ? Theme.layout.barGapEnd : 0
+            left: Theme.layout.barEdge === "left" ? Theme.layout.barGapEdge : Theme.layout.barVertical ? 0 : Theme.layout.barGapStart
+            right: Theme.layout.barEdge === "right" ? Theme.layout.barGapEdge : Theme.layout.barVertical ? 0 : Theme.layout.barGapEnd
         }
 
         Rectangle {
-            anchors.fill: parent
+            id: barBody
+
+            // The bar's entrance at start: it slides in from its screen edge, fades in, or both, as the preset says.
+            property real entered: 0
+
+            // Runs once, as the bar is made. A Behavior would be skipped this early.
+            Motion on entered {
+                from: 0
+                to: 1
+                preset: Theme.motion.bar
+            }
+
+            width: parent.width
+            height: parent.height
+            opacity: Theme.motion.barFade ? entered : 1
+            transform: Translate {
+                readonly property real away: Theme.motion.barSlide ? (1 - barBody.entered) * (Theme.layout.barHeight + Theme.layout.barGapEdge) : 0
+
+                x: Theme.layout.barEdge === "left" ? -away : Theme.layout.barEdge === "right" ? away : 0
+                y: Theme.layout.barEdge === "top" ? -away : Theme.layout.barEdge === "bottom" ? away : 0
+            }
             radius: Theme.shape.barRadius
             color: Theme.colors.surface
             border.color: Theme.colors.border
-            border.width: Theme.shape.borderWidth
+            border.width: Theme.shape.barBorderWidth
 
             Loader {
                 id: contents
@@ -65,10 +91,12 @@ Variants {
                 anchors.fill: parent
                 asynchronous: true
                 source: Qt.resolvedUrl("BarContents.qml")
-                opacity: status === Loader.Ready ? 1 : 0
+                opacity: status === Loader.Ready || !Theme.motion.barFade ? 1 : 0
 
                 Behavior on opacity {
-                    Motion {}
+                    Motion {
+                        preset: Theme.motion.bar
+                    }
                 }
             }
         }

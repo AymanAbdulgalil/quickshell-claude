@@ -17,7 +17,7 @@ Item {
 
     function centre() {
         // Along the bar: where this icon's panel should centre itself.
-        return Theme.layout.barVertical ? mapToItem(null, 0, height / 2).y + Theme.layout.barMargin : mapToItem(null, width / 2, 0).x + Theme.layout.barMargin;
+        return Theme.layout.barVertical ? mapToItem(null, 0, height / 2).y + Theme.layout.barGapStart : mapToItem(null, width / 2, 0).x + Theme.layout.barGapStart;
     }
 
     function publish() {

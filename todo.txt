@@ -6,21 +6,67 @@ Persistent across sessions. Remove items when done. Keep "Decisions waiting on A
 3. Launcher, time panel, notifications, hotspot and VPN review (CLAUDE.md, Stage 5): "(assumed)" decisions not reviewed.
 5. Settings app review (CLAUDE.md, Stage 7).
 8. Stay on now survives shell restarts: if it still ends early, note the time and check: journalctl -t quickshell-stay-on. A dying battery still suspends (seen 2026-11-06).
-9. Notes review (CLAUDE.md, Stage 8): Shift+Tab, Ctrl+Enter in a table, and the other "(assumed)" choices.
+9. Notes review (CLAUDE.md, Stage 8): Ctrl+Enter in a table, and the other "(assumed)" choices. New 2026-11-10: Shift+Tab now outdents
+   (previous cell in a table); tabs cycle only with Ctrl+Tab and Ctrl+Shift+Tab. Search keys Alt+C, Alt+W, F3 follow code-oss. OK?
+10. Bar text centring: on whole pixels the digits cannot sit exactly on the centre (9 px digits in a 24 px bar); the spare pixel now goes
+   above them, so text sits half a pixel low instead of half a pixel high. If it still looks off, try a bar text size whose digits are even.
+11. Tasks (CLAUDE.md, Stage 5): Esc closes the whole launcher overlay (not just back to the launcher); reminder choices none, at time,
+   5 min, 15 min, 1 hour, 1 day; a reminder needs a time; missed reminders are sent up to 12 hours late. OK?
+12. Login screen: the dimming behind the form is now plain black at 35% (the theme-colored tint was the "accent background"?). Confirm that was the one.
+13. Round 8 (2026-11-11) calls made without you, all marked (assumed) in CLAUDE.md:
+   - Bar "slide" covers both its entrance at start and the camera and microphone icons opening room; on by default so they keep moving as before.
+   - "Gaps follow the windows'": panels line up with windows (from the bar = bar's inner gap + Hyprland outer gap; sides and far edge = outer gap;
+     between panels = inner gap).
+   - Blocked while a panel is open: float, pseudo, split, focus by arrow, move window to a workspace. Still allowed: switching workspace, launching,
+     screenshots, lock, reload, exit, and the mouse drag and resize binds. Want any of those blocked too?
+   - Panel font replaces the text font in panels only; titles keep the title font. Panel weight is the titles' weight.
+   - Timers ring as critical notifications (stay until dismissed, warning sound). Stopwatch: Space starts and stops; every stop is listed with the laps.
+14. Round 9 (2026-11-11) calls made without you:
+   - Stopwatch on the clock: "after 2 hours" counts from the first start, pauses included (not the stopwatch's reading). Tint steps stop getting
+     stronger after four overlaps. Lap "orbits" count days from the first start. Start and stop dots were dropped (the tint shows them).
+   - The 24-hour dial has 00, 06, 12, 18 written in; the timer hand is yellow and ends in the accent element.
+   - Timer picker: "In" and "At" tabs with hour and minute steppers; "At" starts ten minutes on; a length is under 24 hours.
+   - Icons: "thin" is the original line; thick is 1.4 times it. Filled: bodies solid with details cut out; line-only icons (arrows, check, power,
+     sleep...) stay lines; the microphone and sun show their empty part faint; Bluetooth becomes a rounded badge with the rune cut out; Wi-Fi a fan
+     of three bands. The Arch logo's line is a little lighter than the icons' and its arch a little wider, so the arch stays open at bar size.
+   - Accent elements offered: dot, ring, diamond, hexagon, sparkle, astroid, four-petal flower, eight-point star. With the dot, the active workspace
+     stays the wide pill. Calendar: five dots or four other elements, then a plus in the text color (an accent plus looked like one more flower).
+   - The login and lock screens still show 12-hour time. Change those too?
 
 === Waiting on Ayman to do or test ===
 
+- [ ] Round 8 (2026-11-11), checked by script and screenshots, not with real keys and mouse:
+      - Bar and panels tab: the two sections; bar font, weight, corners, border, four gaps; panel gaps and "follow the windows'"; fade, slide,
+        duration, curve for each (a panel's slide was filmed working, the bar's entrance was not). Cursor rows now at the bottom of Themes.
+      - Bar icon size 13, 15 (odd sizes): icons stay sharp (13 was checked).
+      - With a panel open: Super+F, J, P, arrows, Super+Shift+number do nothing; Super+Q closes the panel. Without a panel they work.
+      - Notes: Alt+Z back and forth; images, tables and line numbers move with the text, no lag.
+      - Time panel: click the clock. Stopwatch: Start, Lap, Stop, Resume, Reset, Clear history, Space. Timers: the quick buttons; one rings
+        (notification), start it again; delete takes two clicks.
+
+- [ ] Round 9 (2026-11-11), checked by script and screenshots, not with real keys and mouse:
+      - Timer picker: plus and minus (and holding them), the wheel over the numbers, Up/Down and Page Up/Down, In and At, Enter, Add, a label.
+      - Clock: a stopwatch over an hour (stronger tint where it overlaps), a pause (gap), laps (marks on the rim); after two hours it follows the
+        hour hand. Second-day orbits were only drawn from made-up data.
+      - Settings > Themes > Icons: each style and each accent element; look at the bar, the workspaces, the calendar, panels' buttons.
+      - Notes unwrapped: a quote block, type past the right edge; the block should no longer flash to the full width (not reproduced by script:
+        no way to type here).
+
 - [ ] Earlier round, still untested: everything from the 2026-11-09 list (power panel, flameshot, notification buttons, refresh check marks, launcher fade, theme switcher labels, time panel).
 - [ ] Battery charging arrow and check mark while really charging (states were forced for a look only).
-- [ ] Notes with the real mouse: drag selected text out, drag an image in, drag a file in (path), Ctrl+click a link, click a check box, click a table cell, click below the last line, scroll bar drag, sideways scroll on a wide table.
-- [ ] Notes with real keys: Enter in lists, Ctrl+Enter, Shift+Enter in tables, Down on the last line, Alt+1 to 9, Shift+Tab, Alt+Z, Ctrl+Alt+R/C.
+- [ ] Notes with the real mouse: Ctrl+click a link (it flashes), hover a link (pointer), click a check box, click a table cell, click below the last line,
+      scroll bar drags (right, bottom, under a wide table), wheel and Shift+wheel over a wide table and image, wrapped and unwrapped. Click outside: closes.
+- [ ] Notes with real keys: Enter in lists, Ctrl+Enter, Shift+Enter in tables, Down on the last line, Alt+1 to 9, Shift+Tab (outdent), Alt+Z,
+      Ctrl+F (type, Enter, Shift+Enter, Alt+C, Alt+W, Esc), Ctrl+F2 on a selection then type. Typing past the right edge unwrapped: no jitter.
 - [ ] Bar on the left or right: switched live and back by script, looks right; build on it later as planned.
 
 - [ ] Print key with a panel open: the panel closes, flameshot gets the keyboard and covers the bar. A script could not finish this: the desktop portal asked for permission first.
 - [ ] Notes with real typing: styles appear as you type, the caret glides, table Tab and Enter, Ctrl+Z (the commands behind them passed a script).
 
 - [ ] Notes with real keys: Tab, Alt+arrows, Ctrl+L, Ctrl+Shift+Up/Down, and the styling keys (the commands behind them passed a script).
-- [ ] Log in: the screen should fade to the theme color, then the wallpaper fades in. Log in with a wrong password once too.
+- [ ] Log in: black, the wallpaper fades in, then the form; on Enter the form fades, then the wallpaper to black, then the desktop's wallpaper fades in.
+      Log in with a wrong password once too (it comes back, then shakes). Only the opening and closing were filmed in the greeter's test mode.
+- [ ] Separate login wallpaper: Settings > Themes, turn on "Separate login wallpaper", pick one; the next login shows it.
 - [ ] Notifications: a click runs the action; set a sender to Show only and Don't show.
 - [ ] Sound panel: switch output and input device.
 
@@ -39,14 +85,18 @@ Persistent across sessions. Remove items when done. Keep "Decisions waiting on A
 - [ ] Log out and in once: the session now starts from the generated hyprland.lua (validated, and reloaded live, but not yet a fresh login).
 
 - [ ] Notes (real keys and mouse, only the commands were tested by script): typing, Esc, vim keys, Ctrl+V with an image,
-      drag an image or tab out, help button.
+      help button (keys, then the notes settings).
 - [ ] Super+T: arrows, Enter, search, click. Settings on Super+Space, float on Super+F.
 - [ ] Clipboard: Enter copies the selected entry (key handling changed; untested with a real key press).
 - [ ] Thunar (reopen it; it was closed by a test on 2026-11-07): monochrome icons; switch preset, they recolor live.
 - [ ] btop: open it, switch preset; colors follow.
 - [ ] VPN tab: rename and delete an imported file; it should stay off after a reboot now.
 - [ ] Notifications: connect a Bluetooth device or change networks with the panels closed.
-- [ ] Open the launcher, switch workspace with Super+number: the launcher closes, no jump back.
+- [ ] Open a panel, switch workspace with Super+number: the panel stays open; Esc then leaves you on the new workspace (empty one too).
+- [ ] Super+Q with a panel open closes the panel, not the window behind it (tested by script, not the real key).
+- [ ] Tasks: click a day, add a task with a time and reminder, edit, tick, delete (two clicks); the day gets dots. A reminder arrives.
+- [ ] Audio panel: open a device list; it floats over the panel and closes on a pick, Esc or a click elsewhere.
+- [ ] Bar: Settings > Bar and panels, change "Bar icon size" and "Bar text size" separately.
 - [ ] Clipboard: copy, close the source window, paste. Super+V, search, pin, QR on a link. Reboot: history stays.
 - [ ] Hotspot QR: scan with a phone.
 - [ ] Themes: try presets, wallpapers, colors from wallpaper, custom colors. Check a GTK and a Qt app. Lock the screen once
@@ -74,8 +124,10 @@ Persistent across sessions. Remove items when done. Keep "Decisions waiting on A
 
 === Later ===
 
+- [ ] REQUEST FROM AYMAN (2026-11-10): email reminders for tasks, besides the notification. Needs a way to send mail (an SMTP account or a
+      local mailer such as msmtp) and where to send it; nothing is installed for it yet.
+
 - [ ] REMINDER FROM AYMAN: build on the left and right bar positions. They work now, as a straightforward stack of the same items.
-- [ ] Per-theme accent element: Ayman still wants this idea. The workspace marker is one slot for it (`Part`); Astroid was removed.
 - [ ] Ayman may declutter the bar again.
 
 - [ ] Show-password on the lock screen: hyprlock cannot reveal typed text. Only possible if hyprlock adds it.

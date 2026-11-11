@@ -219,9 +219,9 @@ Singleton {
             cursorTheme: active.cursorTheme,
             cursorSize: active.cursorSize
         })
-    readonly property var look: Object.assign({ font: active.font, fontMono: active.fontMono, wallpaper: active.wallpaper }, hyprLook)
+    readonly property var look: Object.assign({ font: active.font, fontMono: active.fontMono, wallpaper: active.wallpaper, loginWallpaper: active.loginWallpaper ?? "" }, hyprLook)
     // Colors, font and wallpaper reach every app; the rest only reaches Hyprland, so it is sent there alone.
-    readonly property string appsSignature: JSON.stringify(Theme.palette) + active.font + active.fontMono + active.wallpaper + JSON.stringify(Settings.themeApps)
+    readonly property string appsSignature: JSON.stringify(Theme.palette) + active.font + active.fontMono + active.wallpaper + (active.loginWallpaper ?? "") + JSON.stringify(Settings.themeApps)
     readonly property string hyprSignature: JSON.stringify(hyprLook)
     readonly property string signature: appsSignature + hyprSignature
     // What the last finished run covered. A run replaced halfway stays unrecorded, so the next run still covers it.

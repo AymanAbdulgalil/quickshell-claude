@@ -17,21 +17,16 @@ Item {
     implicitWidth: Math.ceil(percent.implicitWidth)
     implicitHeight: Theme.layout.barIconSize
 
-    Label {
+    BarText {
         id: percent
 
         anchors.centerIn: parent
         visible: root.mode === "normal"
         text: "%"
         color: root.tint
-        font.pixelSize: Theme.fonts.bar
-        transform: Translate {
-            y: Theme.layout.barTextShift
-        }
-        font.weight: Theme.fonts.weight
     }
 
-    Label {
+    BarText {
         id: alert
 
         anchors.centerIn: parent
@@ -39,10 +34,6 @@ Item {
         opacity: flash.on ? 1 : 0
         text: "!"
         color: root.tint
-        font.pixelSize: Theme.fonts.bar
-        transform: Translate {
-            y: Theme.layout.barTextShift
-        }
         font.weight: Font.Bold
 
         Timer {
@@ -59,53 +50,63 @@ Item {
 
     // The symbols below stand as tall as the digits beside them.
     readonly property real symbolHeight: Theme.active.barDigitHeight
-    readonly property real strokeWidth: 1.4
+    // Thick icons get a heavier line; filled ones a solid arrow head.
+    readonly property real strokeWidth: Theme.icons.style === "thick" ? 1.9 : 1.4
 
-    // Charging: an arrow that rises and fades at both ends of its travel, so it never reaches the edge of the slot.
+    // Charging: arrow heads only, no shaft, pointing up. One head after another rises through the slot, fading in at the
+    // bottom and out at the top (two overlap into a blob at bar sizes). Stepped one whole pixel at a time.
     Canvas {
         id: arrow
 
-        readonly property int travel: Math.max(4, Math.round(root.symbolHeight * 0.4))
+        readonly property real wing: Math.min(width / 2 - 1, root.symbolHeight * 0.42)
+        readonly property real rise: Math.max(2, Math.round(wing * 0.75))
+        // Pixels a head travels from its first row to its last.
+        readonly property int travel: Math.max(4, Math.round(height - 2 - rise - root.strokeWidth))
         property int tick: 0
         readonly property color paintTint: root.tint
         readonly property real paintHeight: root.symbolHeight
+        readonly property var iconWatch: [Theme.icons.style]
 
+        onIconWatchChanged: requestPaint()
         width: root.width
         height: Math.ceil(root.symbolHeight) + 2
-        x: 0
-        y: Math.round((root.height - height) / 2 + travel / 2 - tick)
-        opacity: Math.min(1, Math.min(tick + 1, travel - tick) / 2)
+        y: Math.round((root.height - height) / 2)
         visible: root.mode === "charging"
         onVisibleChanged: requestPaint()
         onPaintTintChanged: requestPaint()
         onPaintHeightChanged: requestPaint()
         onWidthChanged: requestPaint()
+        onTickChanged: requestPaint()
 
         Timer {
-            interval: Theme.motion.chargeCycle / (arrow.travel * 2)
+            interval: Theme.motion.chargeCycle / arrow.travel
             repeat: true
             running: root.mode === "charging"
-            onTriggered: arrow.tick = (arrow.tick + 1) % (arrow.travel + 1)
+            onTriggered: arrow.tick = (arrow.tick + 1) % arrow.travel
         }
 
         onPaint: {
             const ctx = getContext("2d");
             ctx.reset();
-            // On a pixel centre, so the shaft stays sharp.
             const mid = Math.floor(width / 2) - 0.5;
-            const top = 1 + root.strokeWidth / 2;
             const bottom = height - 1 - root.strokeWidth / 2;
-            const wing = Math.min(width / 2 - 1, root.symbolHeight * 0.4);
             ctx.strokeStyle = root.tint;
             ctx.lineWidth = root.strokeWidth;
             ctx.lineCap = "round";
             ctx.lineJoin = "round";
+            // 0 at the bottom of the travel, 1 at the top.
+            const p = tick / (travel - 1);
+            const tip = Math.round(bottom - rise - p * (travel - 1)) + 0.5;
+            ctx.globalAlpha = Math.max(0.15, Math.min(1, Math.min(p, 1 - p) * 3));
             ctx.beginPath();
-            ctx.moveTo(mid, bottom);
-            ctx.lineTo(mid, top);
-            ctx.moveTo(mid - wing, top + wing);
-            ctx.lineTo(mid, top);
-            ctx.lineTo(mid + wing, top + wing);
+            ctx.moveTo(mid - wing, tip + rise);
+            ctx.lineTo(mid, tip);
+            ctx.lineTo(mid + wing, tip + rise);
+            if (Theme.icons.filled) {
+                ctx.closePath();
+                ctx.fillStyle = root.tint;
+                ctx.fill();
+            }
             ctx.stroke();
         }
     }
@@ -117,6 +118,8 @@ Item {
         onVisibleChanged: requestPaint()
         readonly property color paintTint: root.tint
         readonly property real paintHeight: root.symbolHeight
+        readonly property var iconWatch: [Theme.icons.style]
+        onIconWatchChanged: requestPaint()
         onPaintTintChanged: requestPaint()
         onPaintHeightChanged: requestPaint()
         onWidthChanged: requestPaint()

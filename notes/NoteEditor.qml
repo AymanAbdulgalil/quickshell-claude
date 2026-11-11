@@ -2,6 +2,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import ".."
+import "../controls"
 
 // The text of one note. Notes are Markdown on disk; images are `![](images/x.png)`, shown in place while editing.
 // The text is held as rich text only so images can sit inside it: every position below counts each character, line
@@ -42,12 +43,36 @@ Item {
     property var ruleModel: []
     property var checkModel: []
     property var imageModel: []
+    // Sideways scroll of each table and image strip that is wider than the note, by key. Replaced, never changed in
+    // place, so what draws them follows.
     property var tableOffsets: ({})
+    property var imageOffsets: ({})
+    // Ten lines of room after the last one, as in code editors: scrolling can use it, and typing on the last line keeps
+    // some of it in view.
+    readonly property real lineStep: mono.lineSpacing
+    readonly property real bottomRoom: 10 * lineStep
+    // --- Search (Ctrl+F) and every match of the selection (Ctrl+F2). Matches are { from, to } in plain() positions.
+    property bool searching: false
+    property string query: ""
+    property bool matchCase: false
+    property bool wholeWord: false
+    property var searchHits: []
+    property int hitIndex: -1
+    // What Ctrl+F2 put cursors after; highlighted until the text changes or the cursors go.
+    property var occurrenceHits: []
+    // Both, as rectangles in the text's coordinates: { x, y, width, height, current }.
+    property var hitRects: []
+    // Where a Ctrl+clicked link flashes, in the text's coordinates.
+    property rect linkFlash: Qt.rect(0, 0, 0, 0)
     property bool inTable: false
     // Set from updateLayout: as a binding on the text's own width it would be a loop.
     property real unwrappedWidth: 0
     readonly property int checkSize: 12
     readonly property int quotePadding: 6
+    // A quote's side margins, as set in marginOf: the text starts this far in, and the block ends this far after it.
+    readonly property int quoteSide: 30
+    // Set while following the caret past the right end, so the text is wide enough to scroll there at once.
+    property real followWidth: 0
     readonly property bool wrapped: Settings.notesWrap
     readonly property string imageMode: wrapped ? Settings.notesImagesWrapped : Settings.notesImagesUnwrapped
     // Where the caret is drawn. Updated only when styling is done, so it glides without passing through detours.
@@ -58,7 +83,6 @@ Item {
 
     signal edited
     signal closeRequested
-    signal cycleTabs
     // Ctrl+ shortcuts that belong to the panel. Returns true when used.
     property var panelKey: event => false
 
@@ -66,6 +90,10 @@ Item {
     readonly property var imagePattern: /!\[[^\]]*\]\(([^)]+)\)/g
     readonly property int indentWidth: 4
     readonly property string indentText: " ".repeat(indentWidth)
+
+    // Where the writable area starts and ends inside this item, for what is laid out like the text (the help page).
+    readonly property real textLeft: gutter.width
+    readonly property real textRight: edit.rightPadding
 
     function focusNow() {
         edit.forceActiveFocus();
@@ -90,7 +118,7 @@ Item {
             return "0";
         const top = kind.includes("f") ? quotePadding * 2 : 0;
         const bottom = kind.includes("l") ? quotePadding * 2 : 0;
-        return top + "px 30px " + bottom + "px 30px";
+        return top + "px " + quoteSide + "px " + bottom + "px " + quoteSide + "px";
     }
 
     // Inserted at p, this splits the line there.
@@ -498,7 +526,14 @@ Item {
         extraRects = extras.map(p => edit.positionToRectangle(p));
     }
 
-    onExtrasChanged: refreshExtraRects()
+    onExtrasChanged: {
+        refreshExtraRects();
+        // Ctrl+F2's highlights go with its cursors.
+        if (extras.length === 0 && occurrenceHits.length > 0) {
+            occurrenceHits = [];
+            updateHitRects();
+        }
+    }
 
     function handleStyleKey(event, shift) {
         const plainKeys = { [Qt.Key_B]: "bold", [Qt.Key_I]: "italic", [Qt.Key_K]: "link", [Qt.Key_T]: "table", [Qt.Key_1]: "h1", [Qt.Key_2]: "h2", [Qt.Key_3]: "h3", [Qt.Key_QuoteLeft]: "code" };
@@ -923,12 +958,16 @@ Item {
         });
     }
 
-    // Moving to another line or table shows its markers and hides the last one's. Not while selecting.
+    // Moving to another line or table shows its markers and hides the last one's: a check list item, for one, shows its raw
+    // "- [ ]" while the caret is in it. A selection within one line counts (a click that moves a pixel selects a character);
+    // one across lines does not, so dragging a selection does not restyle every line it passes.
     function refreshLitLine() {
-        if (styling || edit.selectionStart !== edit.selectionEnd)
+        if (styling)
             return;
         const s = plain();
         if (s !== lastPlain)
+            return;
+        if (edit.selectionStart !== edit.selectionEnd && s.slice(edit.selectionStart, edit.selectionEnd).includes("\n"))
             return;
         updateCurrentLine();
         const range = litRangeAt(s, edit.cursorPosition);
@@ -1011,7 +1050,8 @@ Item {
             y: first.y,
             height: last.y + last.height,
             total: columns[count],
-            available: flick.width - first.x - edit.rightPadding,
+            // Unwrapped, the note scrolls instead, so the table is drawn whole.
+            available: wrapped ? flick.width - first.x - edit.rightPadding : columns[count],
             columns: columns,
             rows: rows,
             lines: table.lines.map(l => l.st)
@@ -1021,7 +1061,10 @@ Item {
     function updateLayout() {
         if (!edit.visible && flick.width <= 0)
             return;
-        const s = lastPlain;
+        // The text as it is now: a width change from typing can lay out before refreshStyle has read the new text, and
+        // offsets one character stale put a quote line's end on the next line, which read as wrapped: the block flashed to
+        // the full width (2026-11-11).
+        const s = plain();
         const info = structure(s);
         const tops = [];
         const heights = [];
@@ -1030,7 +1073,6 @@ Item {
             tops.push(r.y);
             heights.push(r.height);
         }
-        unwrappedWidth = edit.contentWidth + edit.rightPadding + 4;
         lineTops = tops;
         lineHeights = heights;
 
@@ -1040,20 +1082,28 @@ Item {
                 tables.push(tableEntry(t, key));
         });
         setIfChanged("tableModel", tables);
+        // A drawn table is wider than its hidden source, so it counts toward how far the note scrolls sideways.
+        const widest = Math.max(edit.contentWidth, ...tables.map(t => t.x + t.total));
+        unwrappedWidth = Math.max(widest + edit.rightPadding + 4, followWidth);
 
         const quotes = [];
         const rules = [];
         const checks = [];
         let quoteTop = -1;
+        let quoteRight = 0;
         for (const line of info.lines) {
             const r = { y: tops[line.index], height: heights[line.index] };
             if (line.quote) {
-                if (quoteTop < 0)
+                if (quoteTop < 0) {
                     quoteTop = r.y;
+                    quoteRight = 0;
+                }
+                // The block ends at its own longest line. A line that wraps fills the width; unwrapped, none does.
+                const end = edit.positionToRectangle(line.en);
+                quoteRight = Math.max(quoteRight, wrapped && end.y > r.y + 1 ? edit.width - edit.rightPadding : end.x + quoteSide);
                 const next = info.lines[line.index + 1];
                 if (!next || !next.quote) {
-                    const end = edit.positionToRectangle(line.en);
-                    quotes.push({ y: quoteTop - quotePadding, height: end.y + end.height - quoteTop + 2 * quotePadding });
+                    quotes.push({ y: quoteTop - quotePadding, height: end.y + end.height - quoteTop + 2 * quotePadding, width: Math.min(quoteRight, edit.width - edit.rightPadding) });
                     quoteTop = -1;
                 }
                 continue;
@@ -1075,17 +1125,21 @@ Item {
         setIfChanged("ruleModel", rules);
         setIfChanged("checkModel", checks);
 
+        // While wrapping, an image that is not fitted to the width gets a strip of its own over it, which scrolls
+        // sideways when the picture is wider than the note (unwrapped, the note scrolls instead).
         const images = [];
-        if (wrapped && imageMode === "fixed") {
+        if (wrapped && imageMode !== "fit") {
             const urls = imageUrls();
             let n = 0;
             for (let p = s.indexOf("\uFFFC"); p >= 0; p = s.indexOf("\uFFFC", p + 1)) {
                 const r = edit.positionToRectangle(p);
-                images.push({ key: n, url: urls[n] ?? "", x: r.x, y: r.y + r.height - Settings.notesImageHeight });
+                images.push({ key: n, url: urls[n] ?? "", x: r.x, bottom: r.y + r.height, fixed: imageMode === "fixed" });
                 n++;
             }
         }
         setIfChanged("imageModel", images);
+        if (hitRects.length > 0 || searching)
+            updateHitRects();
         updateCurrentLine();
     }
 
@@ -1301,22 +1355,41 @@ Item {
 
     // --- Mouse
     function linkAt(p) {
+        return linkRangeAt(p)?.url ?? "";
+    }
+
+    // The link at p, with where it starts and ends, or null.
+    function linkRangeAt(p) {
         const s = lastPlain;
         const st = lineStart(s, p);
-        return linkInText(s.slice(st, lineEnd(s, p)), p - st);
+        const found = linkMatch(s.slice(st, lineEnd(s, p)), p - st);
+        return found ? { url: found.url, from: st + found.from, to: st + found.to } : null;
     }
 
     function linkInText(text, column) {
-        const inside = m => column < 0 || (column >= m.index && column <= m.index + m[0].length);
+        return linkMatch(text, column)?.url ?? "";
+    }
+
+    function linkMatch(text, column) {
+        const inside = m => column < 0 || (column >= m.index && column < m.index + m[0].length);
         for (const m of matches(/\[([^\]]+)\]\(([^)\s]+)\)/g, text)) {
             if (inside(m))
-                return m[2];
+                return { url: m[2], from: m.index, to: m.index + m[0].length };
         }
         for (const m of matches(/https?:\/\/[^\s<>|)\]]+/g, text)) {
             if (inside(m))
-                return m[0];
+                return { url: m[0], from: m.index, to: m.index + m[0].length };
         }
-        return "";
+        return null;
+    }
+
+    // Ctrl+click: the link lights up and fades, so the click is seen to have done something while the browser starts.
+    function flashLink(range) {
+        const a = edit.positionToRectangle(range.from);
+        const b = edit.positionToRectangle(range.to);
+        const sameRow = Math.abs(a.y - b.y) < 1;
+        linkFlash = Qt.rect(a.x, a.y, Math.max(4, (sameRow ? b.x : edit.width - edit.rightPadding) - a.x), a.height);
+        flashAnimation.restart();
     }
 
     function openLink(url) {
@@ -1361,26 +1434,218 @@ Item {
         return { pos: pipe < 0 ? st : Math.min(st + pipe + 2 + cell.length, st + text.length), cell: cell };
     }
 
-    function imageUrlAt(p) {
-        for (const q of [p, p - 1]) {
-            if (q >= 0 && edit.getText(q, q + 1) === "\uFFFC") {
-                const before = edit.getText(0, q).split("\uFFFC").length - 1;
-                return imageUrls()[before] ?? "";
-            }
-        }
-        return "";
-    }
-
-    function placeCursorAt(x, y) {
-        const at = edit.mapFromItem(root, x, y);
-        edit.deselect();
-        edit.cursorPosition = edit.positionAt(at.x, at.y);
-    }
-
+    // Everything moves in the same frame (2026-11-11): the wrap mode and width follow the setting at once, so the
+    // images are sized for the new mode and the line numbers, tables and marks are placed again before anything is
+    // drawn. Done later, as before, the text reflowed first and the rest caught up a frame or two behind.
     function toggleWrap() {
         Settings.notesWrap = !Settings.notesWrap;
-        Qt.callLater(rebuild);
+        rebuild();
+        if (wrapped)
+            flick.contentX = 0;
+        updateLayout();
         focusNow();
+    }
+
+    function isWordChar(c) {
+        return c !== undefined && /[A-Za-z0-9_\u00C0-\uFFFF]/.test(c) && c !== "\uFFFC";
+    }
+
+    // Every place `needle` occurs in s. Whole words: not touching a letter, digit or underscore on either side.
+    function occurrences(s, needle, caseSensitive, whole) {
+        const found = [];
+        if (needle === "")
+            return found;
+        const hay = caseSensitive ? s : s.toLowerCase();
+        const pin = caseSensitive ? needle : needle.toLowerCase();
+        for (let i = hay.indexOf(pin); i >= 0; i = hay.indexOf(pin, i + pin.length)) {
+            if (whole && (isWordChar(s[i - 1]) || isWordChar(s[i + pin.length])))
+                continue;
+            found.push({ from: i, to: i + pin.length });
+            if (found.length >= 5000)
+                break;
+        }
+        return found;
+    }
+
+    function openSearch() {
+        const picked = edit.selectionStart !== edit.selectionEnd ? plain().slice(edit.selectionStart, edit.selectionEnd) : "";
+        if (picked !== "" && !picked.includes("\n"))
+            query = picked;
+        searching = true;
+        findField.text = query;
+        findField.focusNow();
+        findField.selectAll();
+        runSearch(true);
+    }
+
+    function closeSearch() {
+        searching = false;
+        searchHits = [];
+        hitIndex = -1;
+        updateHitRects();
+        focusNow();
+    }
+
+    // Finds again. `jump` moves to the first match at or after the caret, as typing a search does.
+    function runSearch(jump) {
+        if (!searching)
+            return;
+        const hits = occurrences(plain(), query, matchCase, wholeWord);
+        searchHits = hits;
+        if (hits.length === 0) {
+            hitIndex = -1;
+        } else if (jump || hitIndex < 0 || hitIndex >= hits.length) {
+            const from = edit.selectionStart;
+            const next = hits.findIndex(h => h.from >= from);
+            hitIndex = next >= 0 ? next : 0;
+            if (jump)
+                showHit();
+        }
+        updateHitRects();
+    }
+
+    function stepHit(by) {
+        if (searchHits.length === 0)
+            return;
+        hitIndex = (hitIndex + by + searchHits.length) % searchHits.length;
+        showHit();
+        updateHitRects();
+    }
+
+    // Selects the current match, which also shows that line's raw text if it was styled away, and scrolls to it.
+    function showHit() {
+        const h = searchHits[hitIndex];
+        if (!h)
+            return;
+        edit.select(h.from, h.to);
+        follow(edit.positionToRectangle(h.from));
+        follow(edit.positionToRectangle(h.to));
+    }
+
+    // Ctrl+F2: a cursor at the end of every match of the selected text, the main one at the end of the selection.
+    function cursorsAtMatches() {
+        const s = plain();
+        const from = edit.selectionStart;
+        const to = edit.selectionEnd;
+        const picked = s.slice(from, to);
+        if (picked === "" || picked.includes("\n"))
+            return;
+        const hits = occurrences(s, picked, true, false);
+        if (hits.length < 2)
+            return;
+        applying = true;
+        edit.deselect();
+        edit.cursorPosition = to;
+        extras = hits.filter(h => h.to !== to).map(h => h.to);
+        applying = false;
+        occurrenceHits = hits;
+        updateHitRects();
+    }
+
+    function rectsOf(h, current) {
+        const a = edit.positionToRectangle(h.from);
+        const b = edit.positionToRectangle(h.to);
+        if (Math.abs(a.y - b.y) < 1)
+            return [{ x: a.x, y: a.y, width: Math.max(2, b.x - a.x), height: a.height, current: current }];
+        // Wrapped across rows: to the end of the first, and from the start of the last.
+        return [{ x: a.x, y: a.y, width: Math.max(2, edit.width - edit.rightPadding - a.x), height: a.height, current: current },
+            { x: 0, y: b.y, width: Math.max(2, b.x), height: b.height, current: current }];
+    }
+
+    function updateHitRects() {
+        let rects = [];
+        searchHits.forEach((h, i) => rects = rects.concat(rectsOf(h, i === hitIndex)));
+        for (const h of occurrenceHits)
+            rects = rects.concat(rectsOf(h, false));
+        hitRects = rects;
+    }
+
+    onQueryChanged: runSearch(true)
+    onMatchCaseChanged: runSearch(true)
+    onWholeWordChanged: runSearch(true)
+
+    // --- Scrolling. The note's Flickable takes no input; this one handler decides where the wheel goes: up and down
+    // to the note, sideways (a sideways wheel, or Shift) to the table or image strip under the pointer when it is wider
+    // than the note, otherwise to the note itself when unwrapped. `at` is in the text's coordinates.
+    function wheel(event, at) {
+        let dx = event.pixelDelta.x !== 0 ? event.pixelDelta.x : event.angleDelta.x / 120 * 3 * lineStep;
+        let dy = event.pixelDelta.y !== 0 ? event.pixelDelta.y : event.angleDelta.y / 120 * 3 * lineStep;
+        if ((event.modifiers & Qt.ShiftModifier) && dx === 0) {
+            dx = dy;
+            dy = 0;
+        }
+        if (dy !== 0)
+            scrollTo(flick.contentX, flick.contentY - dy);
+        if (dx === 0)
+            return;
+        const table = at ? tableModel.find(t => at.y >= t.y && at.y < t.y + t.height && at.x >= t.x && at.x < t.x + Math.min(t.total, t.available) && t.total > t.available) : null;
+        if (table)
+            return scrollPart("tableOffsets", table.key, table.total - table.available, (tableOffsets[table.key] ?? 0) - dx);
+        const strip = at ? stripAt(at.x, at.y) : null;
+        if (strip && strip.most > 0)
+            return scrollPart("imageOffsets", strip.key, strip.most, (imageOffsets[strip.key] ?? 0) - dx);
+        if (!wrapped)
+            scrollTo(flick.contentX - dx, flick.contentY);
+    }
+
+    function scrollTo(x, y) {
+        flick.contentX = Math.max(0, Math.min(flick.contentWidth - flick.width, x));
+        flick.contentY = Math.max(0, Math.min(flick.contentHeight - flick.height, y));
+    }
+
+    function scrollPart(name, key, most, to) {
+        const next = Object.assign({}, root[name]);
+        next[key] = Math.max(0, Math.min(most, to));
+        root[name] = next;
+    }
+
+    // Image strips report their own size once the picture loads; see the Repeater.
+    property var strips: ({})
+
+    function stripAt(x, y) {
+        for (const k in strips) {
+            const st = strips[k];
+            if (st && x >= st.x && x < st.x + st.width && y >= st.y && y < st.y + st.height)
+                return st;
+        }
+        return null;
+    }
+
+    // Keeps the caret in view. Unwrapped, it keeps a few characters of room to its right, and the text is widened at
+    // once if the caret is past its end, so the view never scrolls further than the content allows and then jumps back
+    // (the jitter of 2026-11-09). On the last line, some of the room under the text stays in view.
+    function follow(r) {
+        const lastLine = r.y >= edit.positionToRectangle(edit.length).y - 1;
+        const below = lastLine ? Math.min(bottomRoom, flick.height * 0.4) : 0;
+        if (r.y < flick.contentY)
+            flick.contentY = r.y;
+        else if (r.y + r.height + below > flick.contentY + flick.height)
+            flick.contentY = Math.min(edit.height - flick.height, r.y + r.height + below - flick.height);
+        if (wrapped)
+            return;
+        const room = 4 * mono.averageCharacterWidth;
+        if (r.x - room < flick.contentX) {
+            flick.contentX = Math.max(0, r.x - room);
+        } else if (r.x + room > flick.contentX + flick.width) {
+            followWidth = r.x + room + edit.rightPadding;
+            if (unwrappedWidth < followWidth)
+                unwrappedWidth = followWidth;
+            flick.contentX = r.x + room - flick.width;
+        }
+    }
+
+    // Styles are character formats painted with the theme's colors and fonts, so a theme change paints them again
+    // (otherwise only lines touched afterwards followed it). Waits a moment, since a preset changes many values at once.
+    readonly property string themeKey: [Theme.colors.foreground, Theme.colors.foregroundStrong, Theme.colors.muted, Theme.colors.inactive,
+        Theme.colors.accent, Theme.colors.info, Theme.colors.clear, Theme.fonts.familyMono, Theme.fonts.familyTitle, Theme.fonts.body].join()
+    onThemeKeyChanged: themeRestyle.restart()
+
+    Timer {
+        id: themeRestyle
+
+        interval: 60
+        onTriggered: if (root.lastPlain !== "" || root.plain() !== "")
+            root.restyleAll()
     }
 
     Connections {
@@ -1474,6 +1739,8 @@ Item {
         contentWidth: edit.width
         contentHeight: edit.height
         boundsBehavior: Flickable.StopAtBounds
+        // All scrolling goes through root.wheel(), which knows about tables and images.
+        interactive: false
         onWidthChanged: if (root.lastPlain.includes("\uFFFC"))
             Qt.callLater(root.rebuild)
 
@@ -1481,7 +1748,7 @@ Item {
             id: edit
 
             width: root.wrapped ? flick.width : Math.max(root.unwrappedWidth, flick.width)
-            height: Math.max(implicitHeight, flick.height)
+            height: Math.max(implicitHeight + root.bottomRoom, flick.height)
             rightPadding: Theme.space.ml
             textFormat: TextEdit.RichText
             wrapMode: root.wrapped ? TextEdit.Wrap : TextEdit.NoWrap
@@ -1507,10 +1774,19 @@ Item {
                     return;
                 root.edited();
                 snapshotTimer.restart();
+                if (root.occurrenceHits.length > 0)
+                    root.occurrenceHits = [];
+                if (root.searching)
+                    Qt.callLater(root.runSearch, false);
                 Qt.callLater(root.refreshStyle);
                 if (root.extras.length > 0)
                     root.refreshExtraRects();
             }
+
+            onSelectionStartChanged: if (!root.styling)
+                Qt.callLater(root.refreshLitLine)
+            onSelectionEndChanged: if (!root.styling)
+                Qt.callLater(root.refreshLitLine)
 
             // A click or any ordinary move drops the extra cursors.
             onCursorPositionChanged: {
@@ -1525,17 +1801,7 @@ Item {
                 if (root.styling)
                     return;
                 root.caretRect = cursorRectangle;
-                const r = cursorRectangle;
-                if (r.y < flick.contentY)
-                    flick.contentY = r.y;
-                else if (r.y + r.height > flick.contentY + flick.height)
-                    flick.contentY = r.y + r.height - flick.height;
-                if (!root.wrapped) {
-                    if (r.x < flick.contentX)
-                        flick.contentX = Math.max(0, r.x - 40);
-                    else if (r.x + 2 > flick.contentX + flick.width)
-                        flick.contentX = r.x + 40 - flick.width;
-                }
+                root.follow(cursorRectangle);
             }
 
             Keys.onPressed: event => {
@@ -1547,16 +1813,20 @@ Item {
                 if (root.panelKey(event))
                     return;
                 if (event.key === Qt.Key_Escape) {
-                    if (root.extras.length > 0)
+                    if (root.searching)
+                        root.closeSearch();
+                    else if (root.extras.length > 0)
                         root.clearCursors();
                     else
                         root.closeRequested();
                     return;
                 }
-                if (ctrl && alt && event.key === Qt.Key_R)
-                    return root.tableAction(shift ? "deleteRow" : "addRow");
-                if (ctrl && alt && event.key === Qt.Key_C)
-                    return root.tableAction(shift ? "deleteColumn" : "addColumn");
+                if (ctrl && !shift && event.key === Qt.Key_F)
+                    return root.openSearch();
+                if (ctrl && event.key === Qt.Key_F2)
+                    return root.cursorsAtMatches();
+                if (root.searching && event.key === Qt.Key_F3)
+                    return root.stepHit(shift ? -1 : 1);
                 if (alt && !ctrl && event.key === Qt.Key_Z)
                     return root.toggleWrap();
                 if (alt && event.key === Qt.Key_Right)
@@ -1603,8 +1873,9 @@ Item {
                 }
                 if (ctrl && root.handleStyleKey(event, shift))
                     return;
-                if (event.key === Qt.Key_Backtab)
-                    return root.cycleTabs();
+                // Shift+Tab outdents, the opposite of Tab (it used to cycle note tabs too; Ctrl+Shift+Tab does that).
+                if (event.key === Qt.Key_Backtab && !ctrl)
+                    return root.indentLines(false);
                 if (event.key === Qt.Key_Tab && !ctrl) {
                     // Only spaces, never a tab character.
                     if (edit.selectionStart !== edit.selectionEnd && edit.selectedText.includes("\u2029"))
@@ -1626,13 +1897,13 @@ Item {
                     required property var modelData
 
                     y: modelData.y
-                    width: edit.width - edit.rightPadding
+                    width: modelData.width
                     height: modelData.height
                     z: -2
 
+                    // Square corners, on request (2026-11-10).
                     Rectangle {
                         anchors.fill: parent
-                        radius: Theme.shape.innerRadius
                         color: Theme.colors.surfaceHover
                     }
 
@@ -1691,6 +1962,26 @@ Item {
                 }
             }
 
+            // Search matches and Ctrl+F2's matches, behind the text. The current search match is stronger.
+            Repeater {
+                model: root.hitRects
+
+                Rectangle {
+                    required property var modelData
+
+                    z: -1
+                    x: modelData.x
+                    y: modelData.y
+                    width: modelData.width
+                    height: modelData.height
+                    radius: Math.min(2, Theme.shape.innerRadius)
+                    color: Theme.colors.accent
+                    opacity: modelData.current ? 0.55 : 0.22
+                    border.width: modelData.current ? 1 : 0
+                    border.color: Theme.colors.accent
+                }
+            }
+
             // Over the hidden source lines.
             Repeater {
                 model: root.ruleModel
@@ -1710,6 +2001,7 @@ Item {
 
                 NoteTable {
                     offsets: root.tableOffsets
+                    onScrolled: p => root.scrollPart("tableOffsets", key, most, p)
                 }
             }
 
@@ -1742,7 +2034,8 @@ Item {
                 }
             }
 
-            // Fixed height while wrapping: the picture scrolls sideways in its own strip, covering the one in the text.
+            // While wrapping: a strip over each image that is not fitted to the width, scrolling sideways when the picture
+            // is wider than the note. Fixed height or the picture's own.
             Repeater {
                 model: root.imageModel
 
@@ -1751,44 +2044,104 @@ Item {
 
                     required property var modelData
 
-                    property real offset: 0
-                    readonly property real most: Math.max(0, picture.width - width)
+                    readonly property int key: modelData.key
+                    // The picture's window; the strip itself reaches the edge, covering the inline image under it.
+                    readonly property real view: width - edit.rightPadding
+                    readonly property real most: Math.max(0, picture.width - view)
+                    readonly property real offset: Math.min(root.imageOffsets[key] ?? 0, most)
 
                     x: modelData.x
-                    y: modelData.y
-                    width: flick.width - x - edit.rightPadding
-                    height: Settings.notesImageHeight
+                    y: modelData.bottom - height
+                    width: flick.width - x
+                    height: modelData.fixed ? Settings.notesImageHeight : picture.implicitHeight
                     color: Theme.colors.surfaceRaised
                     clip: true
 
-                    WheelHandler {
-                        orientation: Qt.Horizontal
-                        onWheel: event => strip.offset = Math.max(0, Math.min(strip.most, strip.offset - event.angleDelta.x / 2))
+                    // So the wheel can find it.
+                    function report() {
+                        const next = Object.assign({}, root.strips);
+                        next[key] = { key: key, x: x, y: y, width: view, height: height, most: most };
+                        root.strips = next;
                     }
 
-                    WheelHandler {
-                        acceptedModifiers: Qt.ShiftModifier
-                        onWheel: event => strip.offset = Math.max(0, Math.min(strip.most, strip.offset - event.angleDelta.y / 2))
+                    onXChanged: report()
+                    onYChanged: report()
+                    onWidthChanged: report()
+                    onMostChanged: report()
+                    Component.onCompleted: report()
+                    Component.onDestruction: {
+                        const next = Object.assign({}, root.strips);
+                        delete next[key];
+                        root.strips = next;
                     }
 
-                    Image {
-                        id: picture
-
-                        x: -strip.offset
+                    Item {
+                        width: strip.view
                         height: parent.height
-                        fillMode: Image.PreserveAspectFit
-                        source: strip.modelData.url
-                        asynchronous: true
+                        clip: true
+
+                        Image {
+                            id: picture
+
+                            x: -strip.offset
+                            height: strip.modelData.fixed ? parent.height : implicitHeight
+                            fillMode: Image.PreserveAspectFit
+                            source: strip.modelData.url
+                            asynchronous: true
+                        }
+                    }
+
+                    AutoScrollBar {
+                        horizontal: true
+                        width: strip.view
+                        anchors.bottom: parent.bottom
+                        contentSize: picture.width
+                        viewSize: strip.view
+                        position: strip.offset
+                        onMoved: p => root.scrollPart("imageOffsets", strip.key, strip.most, p)
                     }
                 }
             }
 
-            // What the text itself should not handle: boxes, Ctrl+click, a click below the end, table cells, dragging out.
+            // The link just Ctrl+clicked.
+            Rectangle {
+                id: flashBox
+
+                x: root.linkFlash.x - 2
+                y: root.linkFlash.y
+                width: root.linkFlash.width + 4
+                height: root.linkFlash.height
+                radius: Theme.shape.innerRadius
+                color: Theme.colors.accent
+                opacity: 0
+                z: -1
+
+                SequentialAnimation {
+                    id: flashAnimation
+
+                    NumberAnimation {
+                        target: flashBox
+                        property: "opacity"
+                        to: 0.45
+                        duration: Theme.motion.quick.duration
+                        easing.type: Easing.OutCubic
+                    }
+                    NumberAnimation {
+                        target: flashBox
+                        property: "opacity"
+                        to: 0
+                        duration: Theme.motion.standard.duration * 3
+                        easing.type: Easing.InOutQuad
+                    }
+                }
+            }
+
+            // What the text itself should not handle: boxes, links, a click below the end, table cells, sideways scrolling.
+            // No drag and drop in or out, on request (2026-11-10).
             MouseArea {
                 id: pointer
 
                 property var pending: null
-                property point pressAt: Qt.point(0, 0)
                 property bool pointing: false
 
                 anchors.fill: parent
@@ -1800,26 +2153,20 @@ Item {
                     const ctrl = (mouse.modifiers & Qt.ControlModifier) !== 0;
                     const plainClick = mouse.modifiers === Qt.NoModifier;
                     const p = edit.positionAt(mouse.x, mouse.y);
-                    if (ctrl && root.linkAt(p) !== "")
-                        return { kind: "link", url: root.linkAt(p) };
+                    const link = ctrl ? root.linkRangeAt(p) : null;
+                    if (link)
+                        return { kind: "link", url: link.url, range: link };
                     const check = root.checkAt(mouse.x, mouse.y);
                     if (check)
                         return { kind: "check", check: check };
                     const cell = root.tableCellAt(mouse.x, mouse.y);
                     if (cell) {
                         const url = ctrl ? root.linkInText(cell.cell, -1) : "";
-                        return url !== "" ? { kind: "link", url: url } : { kind: "cell", pos: cell.pos };
+                        return url !== "" ? { kind: "link", url: url, range: null } : { kind: "cell", pos: cell.pos };
                     }
                     const end = edit.positionToRectangle(edit.length);
                     if (plainClick && mouse.y > end.y + end.height)
                         return { kind: "end" };
-                    const image = plainClick ? root.imageUrlAt(p) : "";
-                    if (image !== "")
-                        return { kind: "drag", mime: { "text/uri-list": image }, pos: p };
-                    if (plainClick && edit.selectionStart !== edit.selectionEnd && p >= edit.selectionStart && p < edit.selectionEnd) {
-                        const text = edit.selectedText.replace(/[\u2028\u2029]/g, "\n").replace(/\uFFFC/g, "");
-                        return { kind: "drag", mime: { "text/plain": text }, pos: p };
-                    }
                     return null;
                 }
 
@@ -1829,7 +2176,6 @@ Item {
                         mouse.accepted = false;
                         return;
                     }
-                    pressAt = Qt.point(mouse.x, mouse.y);
                     root.focusNow();
                     if (pending.kind === "end") {
                         edit.deselect();
@@ -1841,19 +2187,17 @@ Item {
                 }
 
                 onPositionChanged: mouse => {
-                    if (pressed && pending?.kind === "drag") {
-                        if (Math.hypot(mouse.x - pressAt.x, mouse.y - pressAt.y) >= 8) {
-                            dragSource.Drag.mimeData = pending.mime;
-                            dragSource.Drag.active = true;
-                            pending = null;
-                        }
-                        return;
-                    }
                     if (pressed)
                         return;
+                    // A pointer over links (Ctrl+click opens them) and check boxes.
                     const p = edit.positionAt(mouse.x, mouse.y);
-                    pointing = root.checkAt(mouse.x, mouse.y) !== null || ((mouse.modifiers & Qt.ControlModifier) !== 0 && root.linkAt(p) !== "");
+                    const r = edit.positionToRectangle(p);
+                    const onText = mouse.y >= r.y && mouse.y < r.y + r.height;
+                    const cell = root.tableCellAt(mouse.x, mouse.y);
+                    pointing = root.checkAt(mouse.x, mouse.y) !== null || (cell ? root.linkInText(cell.cell, -1) !== "" : onText && root.linkAt(p) !== "");
                 }
+
+                onWheel: event => root.wheel(event, Qt.point(event.x, event.y))
 
                 onReleased: {
                     const done = pending;
@@ -1861,22 +2205,13 @@ Item {
                     if (!done)
                         return;
                     if (done.kind === "link") {
+                        if (done.range)
+                            root.flashLink(done.range);
                         root.openLink(done.url);
                     } else if (done.kind === "check") {
                         root.toggleCheck(done.check);
-                    } else if (done.kind === "drag") {
-                        edit.deselect();
-                        edit.cursorPosition = done.pos;
                     }
                 }
-            }
-
-            Item {
-                id: dragSource
-
-                Drag.dragType: Drag.Automatic
-                Drag.supportedActions: Qt.CopyAction
-                Drag.onDragFinished: Drag.active = false
             }
 
             // The caret: glides to where the cursor is, and breathes instead of blinking.
@@ -1959,68 +2294,166 @@ Item {
         }
     }
 
-    // --- Scroll bar: shows while scrolling or when the pointer is at the right edge, then fades.
-    Item {
-        id: scrollBar
+    // --- The search box, at the top right over the text, as in code editors.
+    Rectangle {
+        id: searchBox
 
-        property bool awake: false
-
-        anchors.right: parent.right
         anchors.top: parent.top
-        anchors.bottom: parent.bottom
-        width: Theme.space.ml
-        visible: flick.contentHeight > flick.height
-        opacity: awake || barHover.hovered || barDrag.pressed ? 1 : 0
+        anchors.right: parent.right
+        anchors.topMargin: Theme.space.xs
+        anchors.rightMargin: Theme.space.ml + Theme.space.xs
+        z: 3
+        width: Math.min(parent.width - Theme.space.xl, 330)
+        height: Theme.control.regular + 2 * Theme.space.xs
+        radius: Theme.shape.controlRadius
+        color: Theme.colors.surface
+        border.color: Theme.colors.border
+        border.width: Theme.shape.borderWidth
+        opacity: root.searching ? 1 : 0
+        visible: opacity > 0
 
         Behavior on opacity {
             Motion {
-                preset: Theme.motion.standard
+                preset: Theme.motion.quick
             }
         }
 
-        Connections {
-            target: flick
-
-            function onContentYChanged() {
-                scrollBar.awake = true;
-                sleep.restart();
-            }
+        Keys.onPressed: event => {
+            const alt = (event.modifiers & Qt.AltModifier) !== 0;
+            if (alt && event.key === Qt.Key_C)
+                root.matchCase = !root.matchCase;
+            else if (alt && event.key === Qt.Key_W)
+                root.wholeWord = !root.wholeWord;
+            else if (event.key === Qt.Key_F3)
+                root.stepHit((event.modifiers & Qt.ShiftModifier) ? -1 : 1);
+            else if ((event.modifiers & Qt.ControlModifier) && event.key === Qt.Key_F)
+                findField.selectAll();
+            else if (event.key === Qt.Key_Escape)
+                root.closeSearch();
+            else
+                return;
+            event.accepted = true;
         }
 
-        Timer {
-            id: sleep
-
-            interval: 900
-            onTriggered: scrollBar.awake = false
-        }
-
-        HoverHandler {
-            id: barHover
-        }
-
-        Rectangle {
-            readonly property real room: scrollBar.height - height
-
-            anchors.right: parent.right
-            anchors.rightMargin: 2
-            width: 4
-            radius: 2
-            height: Math.max(24, scrollBar.height * flick.height / flick.contentHeight)
-            y: flick.contentHeight > flick.height ? room * flick.contentY / (flick.contentHeight - flick.height) : 0
-            color: Theme.colors.muted
-        }
-
-        MouseArea {
-            id: barDrag
-
-            function scrollTo(y) {
-                flick.contentY = Math.max(0, Math.min(1, y / height)) * (flick.contentHeight - flick.height);
-            }
-
+        Row {
             anchors.fill: parent
-            preventStealing: true
-            onPressed: mouse => scrollTo(mouse.y)
-            onPositionChanged: mouse => scrollTo(mouse.y)
+            anchors.margins: Theme.space.xs
+            spacing: Theme.space.xxs
+
+            TextField {
+                id: findField
+
+                width: parent.width - count.width - 4 * Theme.control.small - 5 * Theme.space.xxs
+                height: Theme.control.regular
+                placeholder: "Find"
+                onTextChanged: root.query = text
+                onAccepted: root.stepHit((enterModifiers & Qt.ShiftModifier) ? -1 : 1)
+            }
+
+            Label {
+                id: count
+
+                width: Math.max(implicitWidth, 46)
+                height: Theme.control.regular
+                horizontalAlignment: Text.AlignHCenter
+                verticalAlignment: Text.AlignVCenter
+                color: root.query !== "" && root.searchHits.length === 0 ? Theme.colors.error : Theme.colors.muted
+                text: root.query === "" ? "" : root.searchHits.length === 0 ? "None" : (root.hitIndex + 1) + "/" + root.searchHits.length
+
+                Behavior on color {
+                    ColorMotion {}
+                }
+            }
+
+            // Match case, whole words: lit while on.
+            Repeater {
+                model: [["Aa", "matchCase"], ["W", "wholeWord"]]
+
+                InteractiveSurface {
+                    required property var modelData
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Theme.control.small
+                    height: Theme.control.small
+                    restColor: Theme.colors.clear
+                    selected: root[modelData[1]]
+                    onClicked: {
+                        root[modelData[1]] = !root[modelData[1]];
+                        findField.focusNow();
+                    }
+
+                    Label {
+                        anchors.centerIn: parent
+                        text: parent.modelData[0]
+                        font.family: Theme.fonts.familyMono
+                        font.underline: parent.modelData[1] === "wholeWord"
+                        color: parent.selected ? Theme.colors.onAccent : Theme.colors.foreground
+
+                        Behavior on color {
+                            ColorMotion {}
+                        }
+                    }
+                }
+            }
+
+            // Previous and next.
+            Repeater {
+                model: [-1, 1]
+
+                InteractiveSurface {
+                    required property int modelData
+
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Theme.control.small
+                    height: Theme.control.small
+                    restColor: Theme.colors.clear
+                    enabled: root.searchHits.length > 0
+                    opacity: enabled ? 1 : 0.4
+                    onClicked: root.stepHit(modelData)
+
+                    Part {
+                        anchors.centerIn: parent
+                        slot: "powerGlyph"
+                        rotation: parent.modelData < 0 ? 180 : 0
+
+                        readonly property string glyph: "chevron"
+                        readonly property color tint: Theme.colors.foreground
+                        readonly property int iconSize: 12
+                    }
+                }
+            }
         }
+    }
+
+    // --- Scroll bars: show while scrolling or when the pointer is on them, then fade. Sideways only when unwrapped.
+    AutoScrollBar {
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        contentSize: flick.contentHeight
+        viewSize: flick.height
+        position: flick.contentY
+        onMoved: p => flick.contentY = p
+    }
+
+    AutoScrollBar {
+        horizontal: true
+        anchors.left: flick.left
+        anchors.right: parent.right
+        anchors.rightMargin: Theme.space.ml
+        anchors.bottom: parent.bottom
+        visible: !root.wrapped && most > 0.5
+        contentSize: flick.contentWidth
+        viewSize: flick.width
+        position: flick.contentX
+        onMoved: p => flick.contentX = p
+    }
+
+    // The wheel over the line numbers and the edges, which the text's own handler does not cover.
+    MouseArea {
+        anchors.fill: parent
+        z: -1
+        acceptedButtons: Qt.NoButton
+        onWheel: event => root.wheel(event, null)
     }
 }

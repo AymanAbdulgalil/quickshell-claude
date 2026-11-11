@@ -16,6 +16,8 @@ the ones in the power widget are not reviewed yet.
 - Processing Ayman's messages (2026-11-07): break each message into separate tasks, one per request, fix or tweak.
   Then group related tasks together (same file, same feature, or same system area) and work through one group at a
   time, so related changes are made and tested together. Report back by group.
+- Reporting (2026-11-11): no affirmations and no list of what was done. If Ayman asks for X, do not report "did X". Mention only what
+  needs Ayman's attention: bugs, decisions and assumptions, things that could not be done or tested, and features added beyond the request.
 - `DESIGN.md` is the design language: tokens, components, interaction states, performance rules. Read it before touching
   anything visual, and follow it.
 - `HYPRLAND_UPGRADE.md` lists what to recheck whenever Hyprland, hyprlock or Quickshell update. Keep it current.
@@ -28,13 +30,15 @@ Everything visual can change per theme: colors, fonts, corner rounding, layout, 
 Themes are **presets**, built by Ayman in Settings and saved in `presets.json` (`ThemePresets.qml`).
 **Every setting that affects appearance is in the preset** (2026-11-08): wallpaper; colors from a palette, the wallpaper (dark or
 light), or custom; font, sizes and weight; corner radius, panel border, density; bar height, padding and spacing; motion speed;
-how far windows fade behind panels; the gap between bar and panels; three fonts (text, titles, monospace); cursor; every visual Hyprland option (`hypr`, by option name); animation
+how far windows fade behind panels; the gap between bar and panels; three fonts (text, titles, monospace); the bar's and the panels' own font, weight, corners,
+border, gaps per side and motion (2026-11-11); cursor; every visual Hyprland option (`hypr`, by option name); animation
 curves and leaves. Presets store only what differs from `ThemePresets.defaults`. Not in a preset: keybinds, input, monitors, startup,
 idle, and brightness and color temperature, which follow time of day. `Settings.themePreset` is the active id.
 
 - `themes/palettes.js` holds the color palettes (Nord, Catppuccin...) and the wallpaper-to-palette math.
 - `themes/ThemeSpec.qml` lists every value a theme can set. `themes/RuntimeTheme.qml` fills it from the active preset.
-  Bar and control radius are scaled from the one panel radius (0.72 and 0.57).
+  Control radius is scaled from the panel radius (0.57); the bar has its own radius, border, font and weight (2026-11-11). Presets saved before that
+  are migrated once on load (`ThemePresets.migrate`): bar radius 0.72 of the panels', and the old one `barGap` split into the new per-side gaps.
 - `Theme.qml` is what widgets read.
 - `theming/ThemeManager.qml` switches and edits presets, sets the wallpaper (`awww`), works out wallpaper colors
   (cached per wallpaper and style in `Settings.wallpaperPalettes`, both styles at once, for every preset ahead of time),
@@ -45,6 +49,13 @@ idle, and brightness and color temperature, which follow time of day. `Settings.
   palette names outside `themes/`, except the QR code's white background and black modules, which scanners need.
 - A Canvas that paints with `Theme.colors` directly needs `themeWatch` (see any part), or it stays stale on a change.
 - Animations use `Motion { preset: Theme.motion.quick }` (`quick`, `standard`, `panel`).
+- **Icon style** (2026-11-11), per preset (`iconStyle`, Settings > Themes > Icons): thin lines (the original), thick lines, or filled. Every drawn icon reads
+  `Theme.icons.stroke` for its line and `Theme.icons.filled`; filled fills each icon's body and cuts its inner details out (`destination-out`), and icons
+  made only of lines stay lines. Canvases repaint on `iconWatch`. Partly filled icons (microphone, sun) show the empty part faint when filled. The bar's
+  battery symbols get a heavier line or a solid arrow head.
+- **Accent element** (2026-11-11), per preset (`accentMark`, Settings > Themes > Icons): dot, ring, diamond, hexagon, sparkle, astroid, four-petal flower
+  (pointed tips and centre), eight-point star (two squares). Drawn by `parts/accent/shapes.js`, as an item by `controls/AccentMark.qml`. Used for the
+  workspaces, the calendar's task marks, the stopwatch's laps and the timer hand's end on the clock.
 - Every state-driven color transitions: `Behavior on color { ColorMotion {} }`. No color may snap.
   In Canvas parts, animate a color or level property and repaint when it changes.
 
@@ -60,6 +71,7 @@ and point the slot at it from a theme. The part reads its inputs from `parent`.
 | `bluetoothIcon` | `btState`, `dots`, `discoverable` |
 | `batterySuffix` | `mode`, `tint` |
 | `clock` | `hours`, `minutes` |
+| `analogClock` | `hours`, `minutes`, `seconds`, `size`, `stopwatch` (runs), `laps` (snapshots), `alarmAt`, `now` |
 | `language` | `layoutName` |
 | `powerGauge` | `charge`, `capacity`, `tint` |
 | `powerGlyph` | `glyph`, `tint` |
@@ -79,19 +91,23 @@ Thin bar floating at the top, with rounded corners and a subtle border.
 ### Layout
 
 - Left: Arch logo (opens Settings; the gears in panels were removed on request, 2026-11-08), a group gap, then the workspace selector.
+  The logo is drawn on an icon's canvas and grid, exactly as tall as the other icons (2026-11-11, round 9; round 8 had made it 4 px taller). Its inner
+  arch is a little wider than the real logo's and its line a little lighter (0.8 of the icons'), so the arch stays open; filled icons draw it solid.
 - Bar position, top, bottom, left or right, is per preset (`barPosition`); panels, popups and Notes follow it. Vertical is a plain stack for now; Ayman will build on it later.
 - Middle: time.
 - Right, reading **right to left** (2026-11-09): battery | wifi, Bluetooth, volume, microphone, camera, notifications | language.
   `|` is a wider gap (`Theme.layout.groupSpacing`). No brightness icon: its slider is in the power panel.
   The microphone shows only while an app records (red), the camera only while in use; both slide in and out
   (`bar/Reveal.qml`). No clipboard icon (Super+V only) and no theme icon on the bar.
-- Bar is 32 px tall (2026-11-06); status icons are drawn at 4:3 to the bar's digits, to the nearest even height, measured from the font (`RuntimeTheme.barIconDrawn`, 2026-11-09),
-  so they follow the bar text size, which is separate from the panels'. Bar text is moved by `barTextShift` so its digits, not its line box, sit on the centre
-  line. Every drawing fits y 1 to 15 of its grid; panels keep 16 px icons at one unit per pixel. Icon drawings fill their 16-unit grid, so all
+- Bar is 32 px tall (2026-11-06). Bar icons and bar text have **separate sizes** (2026-11-10): "Bar icon size" (`barIconSize`, the drawn height, in 1 px
+  steps since 2026-11-11; an odd size leaves the spare pixel above, checked sharp at 13) and
+  "Bar text size" in Settings > Bar and panels; the bar text size is separate from the panels'. All bar text is `BarText`: a whole-pixel box as tall as an
+  icon's canvas, with the digits placed in it (`barTextShift`), so text and icons centre the same way. When the digits cannot be exactly centred, the spare
+  pixel goes above them (text read high otherwise). Every drawing fits y 1 to 15 of its grid; panels keep 16 px icons at one unit per pixel. Icon drawings fill their 16-unit grid, so all
   icons look the same size and sit on the bar's centre line. Everything on the right sits on whole pixels.
 - Spacing is measured on what is drawn: about 12 px between icons in a group, 20 px between groups. The Bluetooth icon
   keeps blank room for its wave and dots, so its pair is pulled closer (`BarContents.qml`).
-- Battery: 3 px between the number and its symbol; 9 px from the bar's right edge. Every symbol uses one slot, as wide as `%`, so the number never moves. Charging is an upward arrow that fades at both ends of its travel.
+- Battery: 3 px between the number and its symbol; 9 px from the bar's right edge. Every symbol uses one slot, as wide as `%`, so the number never moves. Charging is an arrow head only, no shaft (`^`), rising through the slot and fading in at the bottom and out at the top (2026-11-10). One at a time: two overlap into a blob at bar sizes.
 
 ### Battery
 
@@ -99,7 +115,7 @@ Thin bar floating at the top, with rounded corners and a subtle border.
 |---|---|---|
 | Normal | foreground | `%` |
 | Low (<20, not charging) | red | flashing `!` |
-| Charging | yellow | arrows moving upward |
+| Charging | yellow | arrow heads rising, fading in and out |
 | Full, on charger | green | **(assumed)** check mark |
 
 **(assumed)** "Plugged in, charge pending" counts as charging. Clicking opens the power widget.
@@ -146,11 +162,13 @@ Shows the current keyboard layout as two letters (EN, AR). Click switches to the
 
 ### Time
 
-`01:03` or `12:30`: 12-hour, zero padded, no AM/PM.
+`01:03` or `13:30`: 24-hour, zero padded (2026-11-11; was 12-hour). The time panel's clocks, the stopwatch and the timers are 24-hour too. The login and
+lock screens still show 12-hour **(open: not asked)**.
 
 ### Workspace selector
 
-Dots only (Astroid removed 2026-11-08; a per-theme accent element is still wanted later). **(assumed)** Wide frost pill for the active workspace, light dot for occupied, dim dot for empty.
+The theme's accent element (2026-11-11). With the dot: **(assumed)** wide frost pill for the active workspace, light dot for occupied, dim dot for empty.
+With any other element, each workspace is that element, larger and in accent for the active one.
 Shows 1 through the highest workspace in use. Click to switch.
 
 ## Stage 2: power widget (reviewed by Ayman 2026-11-09)
@@ -164,7 +182,9 @@ serial, removed on request), system uptime, remaining time at current usage, pow
 mode, stay-on, power off, reboot, sleep, hibernate, "etc."
 
 Layout (2026-11-09): charge with the battery type small beside it; the gauge, with "battery life used" inside its hatched part; a fixed 2x2 grid of
-voltage, current (N/A while charging), cycles, uptime, so the height never changes; brightness and temperature sliders; power profile; buttons.
+voltage, current (N/A while charging), cycles, uptime, so the height never changes (more room between its columns, above and below, 2026-11-10); brightness
+and temperature sliders; power profile; buttons. The reboot glyph (also the refresh buttons) is Lucide's rotate-ccw: a circle into an L-shaped head, which
+stays readable at 16 px (2026-11-10; line and filled heads blurred into the arc or pointed the wrong way).
 
 Night mode transitions the screen temperature gradually and lowers brightness gradually with it.
 Power profile labels are Saver, Balanced, Turbo, in equal-width segments.
@@ -224,12 +244,34 @@ Night schedule times are 24-hour, confirmed. The other masked sleep modes stay m
 ## Stage 5: launcher, time panel, notifications (built, awaiting Ayman's review)
 
 **Launcher and time panel:** SUPER toggles both, shown together, a little below the middle of the screen with the
-time panel above. Both 500 px wide (the clock side is 150 px, with no separator, 2026-11-09). Launcher has two unlabelled columns, apps (names only, no icons) and commands, sorted by match and
+time panel above. Both 500 px wide (the clock side is 184 px, with a 150 px clock, 2026-11-11). Launcher has two unlabelled columns, apps (names only, no icons) and commands, sorted by match and
 by use. Arrow keys move: up and down in a column, left and right between columns. No Tab. Text after a space is
 arguments. Terminal only through a leading `!` (no button, no Ctrl+T, no Ctrl+Enter). The one hint is the input's
 placeholder, kept short. Terminal is `kitty`, in `Settings.terminal`. `!` alone is enough, confirmed.
-Time panel: analog clock with digital under it, separator, calendar starting on Saturday with month buttons. **(assumed)** Scrolling changes month; clicking the month title returns to now. From a keybind:
+Time panel: analog clock with digital under it, a separator line, calendar starting on Saturday with month buttons (separator added 2026-11-10, which
+leaves the calendar slimmer). The analog clock is a 24-hour dial (2026-11-11): midnight at the top, noon at the bottom, 00, 06, 12, 18 marked; the minute
+and second hands as usual. A calendar day shows one accent element per open task, up to five dots or four other elements, then a plus in the day's
+text color when there are more (2026-11-11). **(assumed)** Scrolling changes month; clicking the month title returns to now. From a keybind:
 `qs ipc call launcher toggle`. `hl.dsp.global("quickshell:launcher")` is the SUPER bind in `hyprland.lua`.
+
+**Tasks** (2026-11-10, `tasks/`): clicking a calendar day fades the launcher out and that day's tasks in, in its place; the day again, or the back
+arrow, returns. Add, edit, tick off, delete (two clicks). Days with open tasks show up to three dots. A task may have a time (24-hour) and a reminder
+before it (none, at time, 5 min, 15 min, 1 hour, 1 day), sent as a notification by `TaskStore`, which waits on one timer for the next reminder (at most
+15 minutes, so a wake from sleep catches up; sent up to 12 hours late). Saved in `~/.local/share/quickshell/tasks.json`. Email reminders: later (todo.txt).
+**(assumed)** Esc closes the whole overlay, as elsewhere; tasks without a time cannot remind.
+
+**Stopwatch and timers** (2026-11-11, `timer/`): clicking the time panel's clock fades the launcher out and these in, like tasks; the clock again, or back,
+returns. Two tabs. Stopwatch: Start, Stop, Resume as often as needed, Lap (a snapshot while it runs); every lap and stop is listed with its time, the split since
+the one before, and the clock time; Reset moves the session to History (30 kept, Clear takes two clicks). Space starts and stops. Timers are picked, never typed
+(round 9): "In" a length or "At" a time of day (24-hour, the next one to come), hours and minutes each with plus and minus (hold repeats), the wheel, Up and
+Down (minutes), Page Up and Page Down (hours); minutes carry into hours. A line says when a length rings or how long until a time; Enter or Add adds it, with
+an optional label. One-click 1m, 5m, 10m, 25m, 1h. "At" starts ten minutes on, rounded up to five. Listed by when they ring with a live countdown; a rung one can start again. Ringing sends a **critical** notification (stays until
+dismissed, warning sound) **(assumed)**. Kept in `~/.local/share/quickshell/timers.json`; `TimerStore` waits on one timer like `TaskStore`.
+The clock shows them (redone in round 9): the stopwatch tints the face as wedges from the centre, solid colors worked out from the surface (no stacked
+transparency). While the session spans two hours or less **(assumed: from the first start, pauses included)** the wedges follow the minute hand, one turn an
+hour; after that the hour hand, one turn a day. Where turns overlap the tint is stronger (up to four steps); a pause leaves a gap. Each lap is the accent
+element on the rim where the hour hand was; laps of the session's second day sit one orbit (6 px) further in, and so on. No dots for starts and stops. The
+next timer is one yellow (warning) hand at its hour on the 24-hour dial, ending in the accent element, under the clock's own; only the next one.
 
 **Notifications:** Quickshell replaces dunst (`notifications/`); `dunst.service` is masked. Popups top right with
 action buttons. With one action, a click runs it; with several, each gets a button. Right click dismisses, hover pauses the timer. Sound via `pw-play`,
@@ -258,7 +300,8 @@ downloaded again after creation, and NetworkManager then fails with "invalid sec
 
 **Speed:** the network and Bluetooth panels are built 4 seconds after start and kept. Their rows use `ScriptModel`, so updates do not rebuild them, and last time's Wi-Fi list shows dimmed until the scan answers.
 
-**Sound devices:** the audio panel has an output and an input picker under its sliders.
+**Sound devices:** the audio panel has an output and an input picker under its sliders. The panel fits its rows; a picker's list floats over the panel
+(`BarPanel.popupOwner`, drawn like a Dropdown's list) instead of the panel keeping empty room for it (2026-11-10).
 
 **Bluetooth scan** lasts 20 seconds on open; the refresh button starts and stops it.
 
@@ -288,6 +331,9 @@ An app offering no action is brought forward and the notification dismissed.
 `qs ipc call settings open [tab]`, and the Arch logo on the bar.
 
 - **Appearance** (saved per preset, each page says which): Themes, Bar and panels, Windows, Animations.
+  Bar and panels has two sections (2026-11-11): Bar (position, height, font, weight, sizes, corners, border, gaps, spacing, motion) and Panels (font, weight
+  of titles, sizes, density, corners, border, gaps, motion, and the speed of all shell animations). The cursor is under Themes; the bar's gaps moved here
+  from Windows.
 - **Hyprland** (saved once): Monitors, Input, Keybinds, Window rules, Startup, All options.
 - **System**: Display, Power, Network, Bluetooth, Notifications, General.
 
@@ -322,11 +368,16 @@ The greeter cannot read the home folder, so `apply.py` writes the theme, colors 
 `/var/lib/quickshell-sddm` (owned by Ayman), which `/usr/share/sddm/themes/quickshell` links to. `sddm/install.sh`
 set that up once with sudo (run 2026-11-07), picked the theme, and removed wofi. Its fallback colors are the one other place hex
 values are allowed, since the greeter has no Theme. Smoother login: on success the form fades and the dimming
-lifts, leaving the wallpaper; Hyprland's background color is the theme's (so not black before the wallpaper) and
-the startup wallpaper has no transition. A blink remains at the switch from the greeter's X server to Hyprland.
+lifts, leaving the wallpaper. A blink remains at the switch from the greeter's X server to Hyprland.
 
-**Login screen:** the language and a show-password eye sit quietly inside the password field; the user name is highlighted. On Enter it fades to the theme's background
-for 340 ms and only then logs in, because the greeter is closed as soon as login succeeds. Hyprland starts on that color and fades the wallpaper in (`awww clear`, then `img`).
+**Login screen:** the language and a show-password eye sit quietly inside the password field; the user name is highlighted.
+**Transitions (2026-11-10):** it opens from black: the wallpaper fades in, then the form. On Enter the form fades out first, then the wallpaper to black,
+and only then it logs in, because the greeter is closed as soon as login succeeds. No theme-colored background or tint (removed on request); the dimming
+behind the form is black. Hyprland starts on black (`misc:background_color`, `quickshell_background`) and fades the wallpaper in (`awww clear`, then `img`).
+The opening starts on the window's first frame: the greeter's window can map a second after the QML loads. A wrong password brings the wallpaper and
+form back, then the field shakes.
+**Separate login wallpaper** (2026-11-10): per preset (`loginWallpaper`, empty means the desktop's), a switch and a second wallpaper grid under the
+Themes tab's wallpaper.
 **Lock screen:** the language is at the bottom of the screen, muted (a hyprlock label cannot fade with the input field); no show-password, on Ayman's decision.
 
 ## Stage 9: Hyprland GUI (built 2026-11-08, awaiting Ayman's review)
@@ -343,17 +394,28 @@ Window rule effects are one row each: a dropdown of known effects and a value (`
 
 ## Panels
 
-Panels only fade in and out (2026-11-08, on request, to match windows). Hyprland's layer
+Panels fade, slide from the bar, both or neither, per preset (2026-11-11; before that only fade, on request 2026-11-08). Default: fade only. Every panel's card
+uses `controls/PanelShow.qml`, which starts its animation by hand: a Behavior was skipped on a panel's first open, while it was still being built.
+The bar has the same choices: its slide is its entrance at start and the camera and microphone icons opening room (default on, **(assumed)**, so they
+keep moving the others aside as before). Duration and curve are per preset too; curves are the named ones window animations use.
+**Gaps** (2026-11-11): the bar has one per side, named from the bar: screen edge, toward windows (part of its exclusive zone), and its two ends. Panels have
+from the bar, from the screen's sides, from the far edge, and between two panels; **(assumed)** "follow the windows'" lines them up with windows: from the bar
+is the bar's inner gap plus Hyprland's outer gap, sides and far edge are the outer gap, between is the inner gap.
+**Window controls do nothing while a panel is open** (2026-11-11): float, pseudo, split, focus by direction, and moving a window to a workspace (also special)
+are wrapped in `quickshell_guard` in the generated `hyprland.lua`. **(assumed)** Still working: switching workspace, launching, screenshots, lock, reload,
+exit, and the mouse drag and resize binds.
+**The window-close key** (Super+Q) closes the open panel instead of the window behind it (2026-11-10): the generated bind is a Lua function
+(`quickshell_close` in `hyprland/generate.py`) that sends `quickshell:closePanel` when a Quickshell layer holds the keyboard, and closes the window otherwise.
+**Switching workspace keeps panels open** (2026-11-10; asked again 2026-11-11 and checked: closing on an empty workspace stays there). Closing one afterwards stays on the current workspace (see `Panels.yieldKeys` and `stayOn`). Hyprland's layer
 fade is off for them (`hl.layer_rule` with `no_anim` in `hyprland.lua`). The gap between panels, from bar to panel and
 launcher to time panel, follow the preset: "Gap from the bar" (`panelBarGap`) and the window gap (`Theme.layout.panelGap`); distance
 from screen edges is the "around the bar" gap.
 
 While a panel is open it holds the keyboard exclusively, so windows behind it get no keys (Hyprland's own binds still work). The panels
-(2026-11-09): network and Bluetooth have one fixed height (`Theme.layout.listPanelHeight`), sound has `soundPanelHeight`, power's content never changes, and notifications and clipboard fit their content. Edits made while a panel is open keep the fade.
+(2026-11-09): network and Bluetooth have one fixed height (`Theme.layout.listPanelHeight`), power's content never changes, and sound, notifications and clipboard fit their content. Edits made while a panel is open keep the fade.
 
 Application windows fade back (focused 0.55, others at most 0.4 by default; per preset in Settings > Windows) while any panel is open, through Hyprland's
-`decoration` opacity, so its own fade animates it (`ThemeManager.windowsFaded`). Switching workspace closes any open
-panel: the launcher used to hand focus back to a window on the old workspace and Hyprland jumped back.
+`decoration` opacity, so its own fade animates it (`ThemeManager.windowsFaded`).
 
 Panels are built on first open and released a minute after closing (`controls/PanelLoader.qml`); `controls/BarPanel.qml` is the one window
 they all use. Startup memory went from 387 MB to 195 MB. Opening everything still brings it back up: Qt's heap does not shrink on release.
@@ -363,20 +425,34 @@ the screen height under the bar, with input limited to the card (`mask: Region`)
 animated and clipped (2026-11-06): resizing the window itself looked like one panel replacing another.
 No hint lines at the bottom of panels (removed on request).
 
-## Stage 8: Notes (extended 2026-11-09, awaiting Ayman's review)
+## Stage 8: Notes (extended 2026-11-10, awaiting Ayman's review)
 
-`notes/NotesPanel.qml`, `notes/NoteEditor.qml`, `notes/NoteTable.qml`. Super+I (`qs ipc call notes toggle`) fades in at the right, 530 px wide. Independent of `Panels`: it stays
-open beside other panels and does not fade windows or close on outside clicks, so files can be dragged from other windows. Esc closes it. The writable area is a raised sheet, apart from the tab and style bars.
+`notes/NotesPanel.qml`, `notes/NoteEditor.qml`, `notes/NoteTable.qml`, `notes/AutoScrollBar.qml`. Super+I (`qs ipc call notes toggle`) fades in at the right, 530 px wide.
+**An ordinary panel since 2026-11-10** (`Panels.name === "notes"`): one at a time, holds the keyboard, closes on a click outside, fades the windows.
+**No drag and drop**, in or out (removed on request); Ctrl+V pastes text and images. Esc closes search, then extra cursors, then the panel. The writable area is a raised sheet, apart from the tab and style bars.
 
 A Markdown editor that shows the styles as you type. Files live in `~/Notes` (`.md`, `.txt`), saved 400 ms after typing, on tab switch and on close. Tabs persist.
 Buttons: new, open, rename, delete (two clicks, to the trash), help. A second row inserts Markdown; inside a table it holds + Row, + Column, - Row, - Column instead. Every style has a key, listed under help.
 
 Styling is character formats laid over the plain Markdown (`TextEdit.cursorSelection`, "Live styling" in `NoteEditor.qml`), so the file is unchanged by it. Markers shrink away
-except on the line being edited, where they show dimmed; a table being edited shows raw as a whole. Emphasis nests in any order (`inlineMasks`). Undo is our own: text snapshots, Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z.
+except on the line being edited, where they show dimmed; a table being edited shows raw as a whole, and a check list item shows its raw `- [ ]` (a selection
+inside one line counts as editing it, since a click that moves a pixel selects). A theme change paints every line again at once (`themeKey`). Emphasis nests in any order (`inlineMasks`). Undo is our own: text snapshots, Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z.
 
-**Drawn over the text** (`updateLayout`, positions read back from the laid-out text): rendered tables (borders, shaded title row, own sideways scroll; source rows hidden, first character sized to keep the row height), check boxes (click toggles; checked text is muted), rules, images in fixed-height strips. Behind the text at negative z: quote blocks and the current-line highlight. Quote indents are real block margins, which can only be set by reloading the document (`rebuild`), done only when a line's quote state changes.
-**(assumed)** Shift+Tab cycles tabs except in a table, where it is the previous column. Ctrl+Enter in a table adds the line under the table. Enter on an empty list item ends the list. Table actions: Ctrl+Alt+R/C add, with Shift delete; the header and rule rows cannot be deleted. Dropped non-image files add their path (no longer open as tabs, on request).
-Line numbers are logical lines, absolute or relative. Wrap is Alt+Z, remembered. Unwrapped makes the text as wide as its longest line inside the scroller. Settings > General > Notes: browser for links (empty is the system default), line numbers, image handling per wrap mode, fixed height.
+**Drawn over the text** (`updateLayout`, positions read back from the laid-out text): rendered tables (borders, shaded title row, own sideways scroll; source rows hidden, first character sized to keep the row height), check boxes (click toggles; checked text is muted), rules, images in fixed-height strips. Behind the text at negative z: quote blocks (square corners, ending at the block's own longest line, 2026-11-10), search matches and the current-line highlight. Quote indents are real block margins, which can only be set by reloading the document (`rebuild`), done only when a line's quote state changes.
+**Keys without overlaps (2026-11-10):** Shift+Tab outdents (the previous cell in a table); tabs cycle with Ctrl+Tab and Ctrl+Shift+Tab only. Adding and
+deleting rows and columns is only the buttons that replace the style row in a table (no keys). Ctrl+Enter in a table adds the line under the table. Enter on an
+empty list item ends the list; the header and rule rows cannot be deleted.
+**Search:** Ctrl+F opens a box at the top right (the selection, if one line, is the query): match case (Alt+C), whole words (Alt+W), n/total, previous and
+next (Shift+Enter, Enter, F3). Matches are highlighted behind the text; the current one is selected, which shows its line raw. **Ctrl+F2** puts a cursor at the
+end of every match of the selected text and highlights them until the text changes or the cursors go.
+**Scrolling (2026-11-10):** the note's Flickable takes no input; `NoteEditor.wheel` routes the wheel: up and down to the note, sideways (or Shift) to the
+table or image under the pointer when wider than the note, else to the note when unwrapped. Unwrapped, tables are drawn whole and count toward the width.
+Wrapped, wide tables and images not fitted to the width scroll on their own. Auto-hiding scroll bars: right edge, bottom when unwrapped, under each wide
+table and image. Ten lines of room under the last line; on the last line some of it stays in view. Following the caret sideways widens the text first,
+so the view never clamps and jumps back (the old jitter). Links: pointer on hover; Ctrl+click flashes the link.
+**Help** lists the keys, then the notes settings read-only, inset like the note's text.
+Line numbers are logical lines, absolute or relative. Wrap is Alt+Z, remembered; toggling it rebuilds and places everything in the same frame (2026-11-11), so
+images, tables and line numbers no longer catch up a moment after the text. Unwrapped makes the text as wide as its longest line inside the scroller. Settings > General > Notes: browser for links (empty is the system default), line numbers, image handling per wrap mode, fixed height.
 
 Spaces only: Tab inserts four. Alt+Left/Right indent, Alt+Up/Down move lines, Ctrl+L selects the line, Ctrl+Shift+Up/Down add cursors (Esc or a click removes them).
 The caret is drawn by us from `cursorRectangle`: it glides and fades fully out.
@@ -407,6 +483,14 @@ empty bar; everything else is in `BarContents.qml`, loaded in the background, an
 - The Write tool can turn `\u2029`-style escapes into real characters; check generated QML with Python, as with heredocs.
 - A child with negative `z` draws behind its parent `TextEdit`'s text; that is how note backgrounds work.
 - A process started by `Process` outlives a killed Quickshell. Anything holding a lock is started through `setpriv --pdeathsig TERM`.
+- A layer surface holding the keyboard exclusively makes Hyprland ignore focus dispatches, so after a workspace switch it still holds the old window as focused
+  and goes back to its workspace when the layer lets go. `Panels` yields (exclusive to on-demand) for a moment after a switch and focuses the new
+  workspace's `last_window`. An empty workspace has none, and Hyprland cannot focus nothing (`focus` takes direction, monitor, window, urgent_or_last, last;
+  re-focusing the current workspace and a zero cursor move do nothing), so a jump within 300 ms of closing is undone (`stayOn`).
+- Hyprland Lua: `hl.get_layers()` gives `namespace` and `keyboard_interactivity`; `hl.get_active_workspace().last_window`; `hl.dispatch(dsp)` runs a
+  dispatcher, and `hl.bind` takes a Lua function. `hyprctl eval 'error(x)'` is a quick way to print a value.
+- A full-screen `grim` PNG takes about 2 seconds; `grim -t ppm -g REGION` takes 25 ms. Use that to film an animation.
+- `pkill -f PATTERN` from the shell tool matches the tool's own `bash -c` command line and kills it; anchor the pattern (`^sddm-greeter-qt6`).
 - Never bind an item's `parent` to `QsWindow.contentItem` (or anything that changes with the window). Making a panel window visible reparents its content;
   the binding then reparents inside that call and Quickshell segfaults in `QQuickItem::setParentItem` (crash of 2026-11-08, `~/.cache/quickshell/crashes`).
   Hyprland went down 6 seconds later, as the dying shell's core dump finished, and left no report or core: cause not proven.
@@ -417,6 +501,18 @@ empty bar; everything else is in `BarContents.qml`, loaded in the background, an
 - A `Behavior on y` on something placed from its own height animates in from the top when the panel is built.
 - `tightBoundingRect` is one pixel taller than the glyph.
 - `hyprctl eval` takes several statements at once, one per line; one eval is how a whole preset is applied.
+
+- A `FileView` writing its `JsonAdapter` on every change (`onAdapterUpdated: writeAdapter()`) lost changes made in quick succession: the adapter
+  read back the file's old contents between them (three adds kept one). `blockWrites: true` fixes it; `TaskStore` and `TimerStore` use it.
+- A `Behavior` does not run for a change made right after an object is built asynchronously (a panel's first open). Start the animation by hand.
+- Reloads on file change are not reliable (2026-11-11): some edits and `touch` reloaded nothing, and once an old test version kept running. After an
+  edit, check `qs log` for "Reloading"; if it is missing, restart. `qs kill` crashes on its way out and Quickshell's crash handler starts it again, so
+  `qs kill` plus a start left two instances: send SIGTERM to every `quickshell` process (and kill `wl-clip-persist`), then
+  `hyprctl eval 'hl.dispatch(hl.dsp.exec_cmd("quickshell"))'`, and check `pgrep -xc quickshell` is 1.
+- A FileView with `blockLoading` reads its file once: editing `tasks.json` or `timers.json` by hand needs a restart, and the running shell writes its own
+  copy over the file on its next change.
+- In a Canvas, `globalCompositeOperation = "destination-out"` cuts through what is already drawn on that canvas only: how filled icons get their details.
+  `fillRule = Qt.OddEvenFill` makes a hole of an inner circle (the ring element).
 
 - Wifi security enum has more values than it first appears: `Wpa2Psk` and `Wpa2Eap` too. Missing `Wpa2Psk` once made
   ordinary networks look unsupported.

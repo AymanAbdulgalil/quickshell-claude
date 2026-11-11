@@ -19,14 +19,8 @@ ColumnLayout {
     SettingSection {
         text: "Gaps"
     }
-    ShellNumberRow {
-        label: "Around the bar"
-        field: "barGap"
-        options: Format.range(0, 30)
-        format: Format.px
-    }
     HyprNumberRow {
-        label: "Between windows and panels"
+        label: "Between windows"
         option: "general:gaps_in"
         options: Format.range(0, 30)
         format: Format.px

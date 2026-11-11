@@ -9,6 +9,8 @@ import "../.."
 //         | software-off | hardware-off | hotspot | monitor
 //         | ethernet | ethernet-no-internet | ethernet-firewall | ethernet-connecting
 Canvas {
+    readonly property var iconWatch: [Theme.icons.style]
+    onIconWatchChanged: requestPaint()
     // Colors below come from the theme, so repaint when it changes.
     readonly property var themeWatch: Theme.palette
     onThemeWatchChanged: requestPaint()
@@ -137,7 +139,7 @@ Canvas {
         ctx.scale(unit, unit);
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
-        ctx.lineWidth = 1.6;
+        ctx.lineWidth = Theme.icons.stroke + 0.1;
 
         // Fits each drawing to y 1 to 15, so every bar icon is exactly as tall. Badges are placed after this.
         const fit = ({ wifi: [1.053, 8.35], ethernet: [1.12, 8.5], hotspot: [0.909, 8.1], monitor: [1.085, 8] })[spec.kind];
@@ -167,12 +169,29 @@ Canvas {
     function drawWifi(ctx) {
         const cx = 9;
         const cy = 14;
+        const levels = [lit0, lit1, lit2];
+        // Filled: a fan of three bands, the nearest one coming to a point where the dot would be.
+        if (Theme.icons.filled) {
+            for (let i = 0; i < 3; i++) {
+                const outer = 5.6 + i * 3.5;
+                const inner = i === 0 ? 0 : outer - 2.5;
+                ctx.fillStyle = mixed(levels[i]);
+                ctx.beginPath();
+                ctx.arc(cx, cy + 0.6, outer, Math.PI * 1.25, Math.PI * 1.75, false);
+                if (inner > 0)
+                    ctx.arc(cx, cy + 0.6, inner, Math.PI * 1.75, Math.PI * 1.25, true);
+                else
+                    ctx.lineTo(cx, cy + 0.6);
+                ctx.closePath();
+                ctx.fill();
+            }
+            return;
+        }
         ctx.fillStyle = Theme.colors.foreground;
         ctx.beginPath();
         ctx.arc(cx, cy - 0.5, 1.5, 0, Math.PI * 2);
         ctx.fill();
 
-        const levels = [lit0, lit1, lit2];
         for (let i = 0; i < 3; i++) {
             ctx.strokeStyle = mixed(levels[i]);
             ctx.beginPath();
@@ -183,7 +202,8 @@ Canvas {
 
     function drawEthernet(ctx) {
         ctx.strokeStyle = mixed(lit0);
-        ctx.lineWidth = 1.5;
+        ctx.fillStyle = mixed(lit0);
+        ctx.lineWidth = Theme.icons.stroke;
         ctx.beginPath();
         ctx.moveTo(2, 3);
         ctx.lineTo(16, 3);
@@ -194,15 +214,21 @@ Canvas {
         ctx.lineTo(5.5, 11);
         ctx.lineTo(2, 11);
         ctx.closePath();
+        if (Theme.icons.filled)
+            ctx.fill();
         ctx.stroke();
 
-        ctx.lineWidth = 1.2;
+        // The pins; cut out of a filled port.
+        ctx.lineWidth = Theme.icons.stroke * 0.8;
+        if (Theme.icons.filled)
+            ctx.globalCompositeOperation = "destination-out";
         for (const x of [6, 9, 12]) {
             ctx.beginPath();
             ctx.moveTo(x, 6);
             ctx.lineTo(x, 8);
             ctx.stroke();
         }
+        ctx.globalCompositeOperation = "source-over";
     }
 
     // Hotspot: a tower sending out in color, so it cannot be mistaken for a normal connection.

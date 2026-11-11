@@ -21,8 +21,6 @@ Singleton {
     readonly property var sinks: Pipewire.nodes.values.filter(n => n.audio && n.isSink && !n.isStream)
     readonly property var sources: Pipewire.nodes.values.filter(n => n.audio && !n.isSink && !n.isStream)
 
-    property string openPicker: ""
-
     function deviceName(node) {
         return node ? (node.nickname || node.description || node.name) : "None";
     }

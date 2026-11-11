@@ -154,11 +154,11 @@ BarPanel {
     // Facts, two by two. Always the same four, so the panel never changes height.
     GridLayout {
         Layout.fillWidth: true
-        Layout.topMargin: Theme.space.s
-        Layout.bottomMargin: Theme.space.s
+        Layout.topMargin: Theme.space.l
+        Layout.bottomMargin: Theme.space.l
         columns: 2
         uniformCellWidths: true
-        columnSpacing: Theme.space.xxl
+        columnSpacing: Theme.space.xxl + Theme.space.xl
         rowSpacing: Theme.space.xs
 
         Repeater {

@@ -23,19 +23,25 @@ MARK = "Written by Quickshell's Settings > Hyprland."
 ACTIONS = {
     "exec": lambda a: f"hl.dsp.exec_cmd({lua(a)})",
     "global": lambda a: f"hl.dsp.global({lua(a)})",
-    "close": lambda a: "hl.dsp.window.close()",
-    "float": lambda a: 'hl.dsp.window.float({ action = "toggle" })',
-    "pseudo": lambda a: "hl.dsp.window.pseudo()",
-    "split": lambda a: 'hl.dsp.layout("togglesplit")',
+    # A Quickshell panel holding the keyboard catches the close key; otherwise it closes the window (2026-11-10).
+    "close": lambda a: "quickshell_close",
+    # Window controls do nothing while a panel is open (2026-11-11): quickshell_guard wraps them.
+    "float": lambda a: guard('hl.dsp.window.float({ action = "toggle" })'),
+    "pseudo": lambda a: guard("hl.dsp.window.pseudo()"),
+    "split": lambda a: guard('hl.dsp.layout("togglesplit")'),
     "exit": lambda a: "hl.dsp.exit()",
-    "focusDirection": lambda a: f"hl.dsp.focus({{ direction = {lua(a)} }})",
+    "focusDirection": lambda a: guard(f"hl.dsp.focus({{ direction = {lua(a)} }})"),
     "focusWorkspace": lambda a: f"hl.dsp.focus({{ workspace = {workspace(a)} }})",
-    "moveToWorkspace": lambda a: f"hl.dsp.window.move({{ workspace = {workspace(a)} }})",
+    "moveToWorkspace": lambda a: guard(f"hl.dsp.window.move({{ workspace = {workspace(a)} }})"),
     "special": lambda a: f"hl.dsp.workspace.toggle_special({lua(a)})",
     "drag": lambda a: "hl.dsp.window.drag()",
     "resize": lambda a: "hl.dsp.window.resize()",
     "lua": lambda a: a,
 }
+
+
+def guard(dispatcher):
+    return f"quickshell_guard({dispatcher})"
 
 
 def workspace(a):
@@ -81,14 +87,42 @@ def render(m):
         out.append(f"hl.gesture({lua(g)})")
     for d in m.get("devices", []):
         out.append(f"hl.device({lua(d)})")
-    out.append("")
+    out += ["",
+            "-- Panels take the keyboard but not binds. Open panels are the shell's layers asking for the keyboard;",
+            "-- closed ones have no surface.",
+            "local function quickshell_panel_open()",
+            "    for _, layer in ipairs(hl.get_layers()) do",
+            '        if layer.namespace:match("^quickshell") and layer.keyboard_interactivity ~= 0 then',
+            "            return true",
+            "        end",
+            "    end",
+            "    return false",
+            "end",
+            "",
+            "-- The window-close key closes an open panel instead of the window behind it.",
+            "local function quickshell_close()",
+            "    if quickshell_panel_open() then",
+            '        return hl.dispatch(hl.dsp.global("quickshell:closePanel"))',
+            "    end",
+            "    hl.dispatch(hl.dsp.window.close())",
+            "end",
+            "",
+            "-- Other window controls (float, layout, focus, moving a window) do nothing while a panel is open.",
+            "local function quickshell_guard(dispatcher)",
+            "    return function()",
+            "        if not quickshell_panel_open() then",
+            "            hl.dispatch(dispatcher)",
+            "        end",
+            "    end",
+            "end",
+            ""]
     for b in m.get("binds", []):
         out.append(bind(b))
     w = m.get("workspaceBinds", {})
     if w.get("enabled", True):
         out += ["for i = 1, 10 do", "    local key = i % 10",
                 f'    hl.bind({lua(w.get("focusMod", "SUPER"))} .. " + " .. key, hl.dsp.focus({{ workspace = i }}))',
-                f'    hl.bind({lua(w.get("moveMod", "SUPER + SHIFT"))} .. " + " .. key, hl.dsp.window.move({{ workspace = i }}))', "end"]
+                f'    hl.bind({lua(w.get("moveMod", "SUPER + SHIFT"))} .. " + " .. key, quickshell_guard(hl.dsp.window.move({{ workspace = i }})))', "end"]
     out.append("")
     for r in m.get("windowRules", []):
         out.append(rule("hl.window_rule", r))

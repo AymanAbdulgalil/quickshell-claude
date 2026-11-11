@@ -19,13 +19,21 @@ Rectangle {
     signal sideways(int by)
     signal escaped
 
-    function enter() {
+    // The modifiers held with the last Enter, so Shift+Enter can mean something else (back, in a search).
+    property int enterModifiers: 0
+
+    function enter(modifiers) {
+        root.enterModifiers = modifiers ?? 0;
         root.accepted();
         root.finished();
     }
 
     function focusNow() {
         input.forceActiveFocus();
+    }
+
+    function selectAll() {
+        input.selectAll();
     }
 
     Layout.fillWidth: true
@@ -57,8 +65,8 @@ Rectangle {
         font.pixelSize: Theme.fonts.small
         // Enter is read as a key, not through TextInput's accepted: with Wayland's text-input protocol in
         // between, accepted did not always arrive (the clipboard's Enter did nothing).
-        Keys.onReturnPressed: root.enter()
-        Keys.onEnterPressed: root.enter()
+        Keys.onReturnPressed: event => root.enter(event.modifiers)
+        Keys.onEnterPressed: event => root.enter(event.modifiers)
         onEditingFinished: root.finished()
         Keys.onLeftPressed: event => {
             if (root.arrowsMove)

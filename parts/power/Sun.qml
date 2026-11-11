@@ -2,8 +2,11 @@ import QtQuick
 import "../.."
 
 // Brightness icon: rays grow and the sun fills with the level. Becomes a moon in night mode.
+// Filled: the disc above the level is faint, not empty, and the moon is solid.
 // Inputs: level (0 to 1), tint, iconSize, off (night mode)
 Canvas {
+    readonly property var iconWatch: [Theme.icons.style]
+    onIconWatchChanged: requestPaint()
     id: root
 
     property color tint: parent.tint
@@ -33,7 +36,7 @@ Canvas {
         const level = shown / 20;
         ctx.strokeStyle = tint;
         ctx.fillStyle = tint;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Theme.icons.stroke;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
 
@@ -49,6 +52,11 @@ Canvas {
             ctx.beginPath();
             ctx.arc(8, 8, r, 0, Math.PI * 2);
             ctx.stroke();
+            if (Theme.icons.filled) {
+                ctx.globalAlpha = (1 - moon) * 0.35;
+                ctx.fill();
+                ctx.globalAlpha = 1 - moon;
+            }
             // The disc fills from the bottom with the level.
             ctx.save();
             ctx.beginPath();
@@ -78,6 +86,8 @@ Canvas {
             ctx.beginPath();
             ctx.arc(8, 8, 6, Math.PI * 0.2, Math.PI * 1.45);
             ctx.quadraticCurveTo(5.5, 7, 12.8, 11.5);
+            if (Theme.icons.filled)
+                ctx.fill();
             ctx.stroke();
         }
     }

@@ -1,13 +1,13 @@
 import QtQuick
+import QtQuick.Window
 
 // SDDM login screen in the active Quickshell preset's look: its wallpaper, colors and font, laid out like the
 // lock screen (time, date, password field, keyboard language). Colors come from theme.conf, written by
-// Quickshell's themes/apply.py whenever the preset changes. On success the form fades and the dimming lifts,
-// leaving only the wallpaper, which is what the desktop starts with.
+// Quickshell's themes/apply.py whenever the preset changes. It opens from black: the wallpaper fades in, then the form.
+// Logging in runs that backwards, form first, then the wallpaper to black, where Hyprland starts (2026-11-10).
 Rectangle {
     id: root
 
-    readonly property color surface: config.surface || "#2e3440"
     readonly property color raised: config.surfaceRaised || "#3b4252"
     readonly property color text: config.foreground || "#d8dee9"
     readonly property color strong: config.foregroundStrong || "#eceff4"
@@ -22,26 +22,109 @@ Rectangle {
     property bool leaving: false
     property bool failed: false
     property bool showPassword: false
+    // Driven by the animations below, never bound: the wallpaper (with its dimming) and the form over it.
+    property real wallpaperShown: 0
+    property real formShown: 0
 
     width: 1920
     height: 1080
-    color: surface
+    color: "black"
 
-    // The greeter is closed the moment the login succeeds, too soon to animate. So the screen fades to the theme's
-    // background first and the login happens then; Hyprland starts on that same color and fades its wallpaper in.
+    // The greeter is closed the moment the login succeeds, too soon to animate. So the screen goes to black first and
+    // the login happens then; Hyprland starts on black and fades its wallpaper in.
     function login() {
         if (password.text === "" || leaving)
             return;
         failed = false;
         leaving = true;
-        leaveDelay.restart();
+        arrive.stop();
+        back.stop();
+        leave.restart();
     }
 
-    Timer {
-        id: leaveDelay
+    // In: black, then the wallpaper, then the form. Started by the window's first frame: the greeter's window can show
+    // a second after this loads, and an animation started at load had already finished by then.
+    Connections {
+        target: root.Window.window
+        enabled: !arrive.started
 
-        interval: 340
-        onTriggered: sddm.login(root.userName, password.text, sessionModel.lastIndex >= 0 ? sessionModel.lastIndex : 0)
+        function onFrameSwapped() {
+            arrive.started = true;
+            arrive.start();
+        }
+    }
+
+    SequentialAnimation {
+        id: arrive
+
+        property bool started: false
+
+        PauseAnimation {
+            duration: 150
+        }
+        NumberAnimation {
+            target: root
+            property: "wallpaperShown"
+            to: 1
+            duration: 700
+            easing.type: Easing.InOutQuad
+        }
+        NumberAnimation {
+            target: root
+            property: "formShown"
+            to: 1
+            duration: 350
+            easing.type: Easing.OutQuad
+        }
+    }
+
+    // Out: the form, then the wallpaper to black, then the login itself.
+    SequentialAnimation {
+        id: leave
+
+        NumberAnimation {
+            target: root
+            property: "formShown"
+            to: 0
+            duration: 220
+            easing.type: Easing.InQuad
+        }
+        NumberAnimation {
+            target: root
+            property: "wallpaperShown"
+            to: 0
+            duration: 420
+            easing.type: Easing.InOutQuad
+        }
+        ScriptAction {
+            script: sddm.login(root.userName, password.text, sessionModel.lastIndex >= 0 ? sessionModel.lastIndex : 0)
+        }
+    }
+
+    // A wrong password: back in, in the same order as at the start, then the field shakes.
+    SequentialAnimation {
+        id: back
+
+        NumberAnimation {
+            target: root
+            property: "wallpaperShown"
+            to: 1
+            duration: 350
+            easing.type: Easing.OutQuad
+        }
+        NumberAnimation {
+            target: root
+            property: "formShown"
+            to: 1
+            duration: 220
+            easing.type: Easing.OutQuad
+        }
+        ScriptAction {
+            script: {
+                password.forceActiveFocus();
+                shake.restart();
+            }
+        }
     }
 
     Connections {
@@ -51,33 +134,30 @@ Rectangle {
             root.leaving = false;
             root.failed = true;
             password.text = "";
-            password.forceActiveFocus();
-            shake.restart();
+            back.restart();
         }
 
         function onLoginSucceeded() {
         }
     }
 
-    Image {
+    // The wallpaper with a neutral dimming for the form to read on: black, not a theme color.
+    Item {
         anchors.fill: parent
-        source: config.background ? "file://" + config.background : ""
-        fillMode: Image.PreserveAspectCrop
-        asynchronous: false
-        smooth: true
-    }
+        opacity: root.wallpaperShown
 
-    // Dims the wallpaper behind the form; on login it closes to the theme's background, where Hyprland starts.
-    Rectangle {
-        anchors.fill: parent
-        color: root.surface
-        opacity: root.leaving ? 1 : 0.45
+        Image {
+            anchors.fill: parent
+            source: config.background ? "file://" + config.background : ""
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: false
+            smooth: true
+        }
 
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 320
-                easing.type: Easing.InOutQuad
-            }
+        Rectangle {
+            anchors.fill: parent
+            color: "black"
+            opacity: 0.35
         }
     }
 
@@ -85,14 +165,7 @@ Rectangle {
         id: form
 
         anchors.fill: parent
-        opacity: root.leaving ? 0 : 1
-
-        Behavior on opacity {
-            NumberAnimation {
-                duration: 300
-                easing.type: Easing.OutQuad
-            }
-        }
+        opacity: root.formShown
 
         Text {
             id: clock
@@ -343,10 +416,22 @@ Rectangle {
                                 ctx.arc(9, 9, 6.5, Math.PI * 0.2, Math.PI * 1.45);
                                 ctx.quadraticCurveTo(6.5, 8, 14.2, 12.8);
                             } else if (button.modelData[0] === "reboot") {
-                                ctx.arc(9, 9.5, 6, Math.PI * 1.7, Math.PI * 1.25);
-                                ctx.moveTo(12.2, 1.9);
-                                ctx.lineTo(12.5, 4.6);
-                                ctx.lineTo(15.2, 4.2);
+                                // Lucide's rotate-ccw on its 24 grid: a circle running anticlockwise into an L-shaped head at the upper left, which
+                                // stays readable at 16 px where line or filled heads blur into the arc.
+                                ctx.save();
+                                ctx.translate(0.5, 0.5);
+                                ctx.scale(0.7, 0.7);
+                                ctx.lineWidth = 1.5 / 0.7;
+                                ctx.beginPath();
+                                ctx.arc(12, 12, 9, Math.PI, -Math.PI / 2, true);
+                                ctx.arc(12, 12, 9, -Math.PI / 2, -Math.PI * 0.76, true);
+                                ctx.lineTo(3, 8);
+                                ctx.moveTo(3, 3);
+                                ctx.lineTo(3, 8);
+                                ctx.lineTo(8, 8);
+                                ctx.stroke();
+                                ctx.restore();
+                                ctx.beginPath();
                             } else {
                                 ctx.arc(9, 9.8, 6, Math.PI * 1.65, Math.PI * 1.35);
                                 ctx.moveTo(9, 2.2);

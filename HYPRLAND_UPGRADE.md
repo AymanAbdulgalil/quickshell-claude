@@ -35,8 +35,11 @@ Exit 0 and no errors means the config still parses. Then open Settings > All opt
 | Screen shader: `decoration:screen_shader`, GLSL `#version 300 es`, `v_texcoord`, `tex` | `power/NightMode.qml` | Never use the `time` uniform |
 | Socket events: `activelayout`, `configreloaded`, `openwindow` | `bar/Language.qml`, `ThemeManager.qml`, `Panels.qml` | Data field order |
 | `hyprctl switchxkblayout`, `setcursor`, `devices -j`, `monitors all -j`, `getoption`, `seterror` | various | JSON field names (`active_keymap`, `main`, `availableModes`) |
-| Global shortcut names `quickshell:launcher`, `clipboard`, `notes`, `settings`, `themes` | `hyprland.json`, `GlobalShortcut`s | |
-| `misc:background_color` | `apply.py` | Keeps the start of the session on the theme's color |
+| Global shortcut names `quickshell:launcher`, `clipboard`, `notes`, `settings`, `themes`, `closePanel` | `hyprland.json`, `GlobalShortcut`s | |
+| `misc:background_color` | `apply.py` | Black, so the session starts on the color the login screen faded to |
+| The close key as a Lua function: `hl.bind` taking a function, `hl.dispatch`, `hl.get_layers()` with `namespace` and `keyboard_interactivity` | `quickshell_close` in `generate.py` | If these change, Super+Q stops closing panels, or windows. Test: open a panel, press Super+Q; the window behind stays |
+| Window controls behind a guard: a dispatcher made once (`hl.dsp.window.float(...)`) and dispatched later from a function, any number of times | `quickshell_guard` in `generate.py` | If a dispatcher can only run once, or binds stop taking functions, Super+F, J, P, arrows and Shift+number stop working. Test: with no panel open each works; with one open, nothing happens |
+| After a workspace switch with a panel open: `hl.get_active_workspace().last_window` and `hl.dsp.focus({ window = "address:..." })` | `Panels.qml` (`refocuser`) | Test: open the launcher, Super+2, Esc; you should stay on 2. Also an empty workspace |
 
 ## Other programs
 

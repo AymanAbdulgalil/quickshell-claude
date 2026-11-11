@@ -58,11 +58,6 @@
             "kind": "float"
         },
         {
-            "arg": "kitty",
-            "keys": "SUPER + Return",
-            "kind": "exec"
-        },
-        {
             "arg": "flameshot gui",
             "keys": "Print",
             "kind": "exec"

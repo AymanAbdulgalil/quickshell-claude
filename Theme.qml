@@ -26,6 +26,7 @@ Singleton {
     readonly property var control: active.control
     readonly property var motion: active.motion
     readonly property var parts: active.parts
+    readonly property var icons: active.icons
 
     // Units per pixel for an icon on a 16-unit grid, whose drawing is 14 units tall. A bar icon gets 0.7 px more, because
     // the soft rows at the edges of a curve look shorter than the solid rows of a digit of the same height.

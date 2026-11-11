@@ -20,17 +20,12 @@ Item {
         horizontalItemAlignment: Grid.AlignHCenter
         verticalItemAlignment: Grid.AlignVCenter
 
-        Label {
+        BarText {
             text: PowerInfo.percent
             color: PowerInfo.tint
             Behavior on color {
                 ColorMotion {}
             }
-            font.pixelSize: Theme.fonts.bar
-            transform: Translate {
-                y: Theme.layout.barTextShift
-            }
-            font.weight: Theme.fonts.weight
         }
 
         Part {

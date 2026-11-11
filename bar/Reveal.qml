@@ -14,17 +14,22 @@ Item {
 
     implicitHeight: Theme.layout.barVertical ? (shown ? openLength : 0) : holder.height
     implicitWidth: Theme.layout.barVertical ? holder.width : (shown ? openLength : 0)
+    // The bar's motion: with sliding off the room opens at once, with fading off the icon shows at once.
     clip: true
 
     Behavior on implicitWidth {
+        enabled: Theme.motion.barSlide
+
         Motion {
-            preset: Theme.motion.standard
+            preset: Theme.motion.bar
         }
     }
 
     Behavior on implicitHeight {
+        enabled: Theme.motion.barSlide
+
         Motion {
-            preset: Theme.motion.standard
+            preset: Theme.motion.bar
         }
     }
 
@@ -36,8 +41,10 @@ Item {
         opacity: root.shown ? 1 : 0
 
         Behavior on opacity {
+            enabled: Theme.motion.barFade
+
             Motion {
-                preset: Theme.motion.standard
+                preset: Theme.motion.bar
             }
         }
     }

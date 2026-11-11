@@ -1,19 +1,22 @@
 import QtQuick
 import QtQuick.Layouts
 import Quickshell
+import Quickshell.Hyprland
 import Quickshell.Io
 import Quickshell.Wayland
 import Qt.labs.folderlistmodel
 import ".."
 import "../controls"
 
-// Notes: Super+I, slides in from the right at full height. Each tab is a file in ~/Notes, saved as you type.
-// It does not close on outside clicks, so files can be dragged in from other windows.
+// Notes: Super+I, fades in at the right at full height. Each tab is a file in ~/Notes, saved as you type.
+// An ordinary panel (2026-11-10): one at a time, holds the keyboard, closes on a click outside, fades the windows.
+// No drag and drop, on request; images come in with Ctrl+V.
 PanelWindow {
     id: panel
 
     property var homeScreen
-    readonly property bool open: Panels.notesOpen
+    property var barWindow
+    readonly property bool open: Panels.notesOpen && Panels.screen === homeScreen
     // Follows `open` a frame later, so it still fades in when built by opening.
     property bool shown: false
     property string view: "editor"   // "editor", "files", "help"
@@ -125,26 +128,6 @@ PanelWindow {
         ops.start(["gio", "trash", dir + "/" + old], {}, () => closeTab(old));
     }
 
-    // Dropped at the cursor: images go into the note (copied beside the notes), any other file as its path.
-    function dropped(urls) {
-        const images = /\.(png|jpe?g|gif|webp|bmp|svg)$/i;
-        const stamp = Date.now();
-        const paths = urls.map(u => decodeURIComponent(String(u).replace(/^file:\/\//, "")));
-        const list = paths.map((p, i) => ({ from: p, image: images.test(p), name: p.split("/").pop(), to: images.test(p) ? "images/" + stamp + "-" + i + "-" + p.split("/").pop().replace(/\s+/g, "-") : p.split("/").pop() }));
-        const pics = list.filter(f => f.image);
-        const others = list.filter(f => !f.image).map(f => f.from).join("\n");
-        if (others !== "")
-            editor.insertPlain(others);
-        if (pics.length === 0)
-            return;
-        const script = 'mkdir -p "$DIR/images"\nwhile IFS= read -r from && IFS= read -r to; do cp -n -- "$from" "$DIR/$to"; done';
-        const input = pics.map(f => f.from + "\n" + f.to).join("\n") + "\n";
-        ops.start(["sh", "-c", script], { DIR: dir }, () => {
-            for (const f of pics)
-                editor.insertImage(dir + "/" + f.to);
-        }, input);
-    }
-
     // One file operation at a time.
     Process {
         id: ops
@@ -205,12 +188,19 @@ PanelWindow {
     }
 
     screen: homeScreen
-    visible: shown || card.opacity > 0
-    implicitWidth: Theme.layout.notesWidth + Theme.layout.barMargin
+    visible: panel.shown || show.progress > 0
+    implicitWidth: Theme.layout.notesWidth + Theme.layout.panelGapSide
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.OnDemand : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: Panels.keyboardMode(open)
+
+    // Clicking anywhere outside the panel and the bar closes it, as with the other panels.
+    HyprlandFocusGrab {
+        windows: panel.barWindow ? [panel, panel.barWindow] : [panel]
+        active: panel.open
+        onCleared: Panels.close()
+    }
 
     anchors {
         top: true
@@ -219,27 +209,32 @@ PanelWindow {
         left: Theme.layout.barEdge === "right"
     }
 
-    margins.top: Theme.layout.barEdge === "top" ? Theme.layout.barClearance : Theme.layout.barMargin
+    margins.top: Theme.layout.barEdge === "top" ? Theme.layout.barClearance : Theme.layout.panelGapFar
     margins.bottom: Theme.layout.barEdge === "bottom" ? Theme.layout.barClearance : 0
-    margins.left: Theme.layout.barEdge === "right" ? Theme.layout.barMargin : 0
+    margins.left: Theme.layout.barEdge === "right" ? Theme.layout.panelGapSide : 0
     margins.right: Theme.layout.barEdge === "right" ? Theme.layout.barClearance : 0
 
     Rectangle {
         id: card
 
         width: Theme.layout.notesWidth
-        height: parent.height - (Theme.layout.barEdge === "bottom" ? 0 : Theme.layout.barMargin)
+        height: parent.height - (Theme.layout.barEdge === "bottom" ? 0 : Theme.layout.panelGapFar)
         radius: Theme.shape.panelRadius
         color: Theme.colors.surface
         border.color: Theme.colors.border
         border.width: Theme.shape.borderWidth
 
-        opacity: panel.shown ? 1 : 0
+        opacity: show.fade
+        transform: Translate {
+            x: show.dx
+            y: show.dy
+        }
 
-        Behavior on opacity {
-            Motion {
-                preset: Theme.motion.panel
-            }
+        PanelShow {
+            id: show
+
+            shown: panel.shown
+            distance: (Theme.layout.barVertical ? card.width : card.height) + Theme.layout.panelBarGap
         }
 
         ColumnLayout {
@@ -290,20 +285,6 @@ PanelWindow {
 
                         HoverHandler {
                             id: tabHover
-                        }
-
-                        // Dragging a tab out drops the note's file.
-                        DragHandler {
-                            id: tabDrag
-
-                            target: null
-                        }
-
-                        Item {
-                            Drag.active: tabDrag.active
-                            Drag.dragType: Drag.Automatic
-                            Drag.supportedActions: Qt.CopyAction
-                            Drag.mimeData: ({ "text/uri-list": encodeURI("file://" + panel.dir + "/" + tab.modelData) })
                         }
 
                         TapHandler {
@@ -480,8 +461,7 @@ PanelWindow {
                         panel.dirty = true;
                         autosave.restart();
                     }
-                    onCloseRequested: Panels.notesOpen = false
-                    onCycleTabs: panel.moveTab(1)
+                    onCloseRequested: Panels.close()
                     panelKey: event => {
                         if ((event.modifiers & Qt.AltModifier) && !(event.modifiers & Qt.ControlModifier) && event.key >= Qt.Key_1 && event.key <= Qt.Key_9) {
                             panel.goToTab(event.key - Qt.Key_0);
@@ -505,18 +485,6 @@ PanelWindow {
                         else
                             return false;
                         return true;
-                    }
-                }
-
-                DropArea {
-                    anchors.fill: editor
-                    onDropped: drop => {
-                        editor.placeCursorAt(drop.x, drop.y);
-                        if (drop.hasUrls)
-                            panel.dropped(drop.urls);
-                        else if (drop.hasText)
-                            editor.insertPlain(drop.text);
-                        drop.accept(Qt.CopyAction);
                     }
                 }
 
@@ -561,12 +529,18 @@ PanelWindow {
                     }
                 }
 
-                // --- Shortcuts
+                // --- Shortcuts, then the notes settings as they are now (changed in Settings > General). Inset like the
+                // note's text, inside the sheet.
                 Flickable {
                     anchors.fill: parent
+                    anchors.topMargin: Theme.space.s
+                    anchors.bottomMargin: Theme.space.s
+                    anchors.leftMargin: Theme.space.s + editor.textLeft
+                    anchors.rightMargin: Theme.space.s + editor.textRight
                     visible: panel.view === "help"
                     clip: true
                     contentHeight: helpColumn.implicitHeight
+                    boundsBehavior: Flickable.StopAtBounds
 
                     Column {
                         id: helpColumn
@@ -585,30 +559,40 @@ PanelWindow {
                                 ["Ctrl+Shift+Q", "quote"],
                                 ["Ctrl+K  T", "link, table"],
                                 ["Tables", ""],
-                                ["Tab, Shift+Tab", "next column (adds one at the end), previous"],
+                                ["Tab, Shift+Tab", "next cell (adds a column at the end), previous cell"],
                                 ["Enter, Shift+Enter", "next row (adds one at the end), previous row"],
-                                ["Ctrl+Alt+R  C", "add a row, a column after this one"],
-                                ["Ctrl+Alt+Shift+R  C", "delete this row, column"],
+                                ["Ctrl+Enter", "new line under the table"],
+                                ["Rows, columns", "the buttons above, while the caret is in a table"],
                                 ["Lines", ""],
                                 ["Enter", "continues a list at the same indent; on an empty item, ends it"],
                                 ["Ctrl+Enter", "new line under this one"],
-                                ["Alt+Z", "wrap or unwrap lines"],
-                                ["Tab", "four spaces, or indents selected lines"],
+                                ["Tab, Shift+Tab", "indent, outdent (four spaces)"],
                                 ["Alt+Left  Right", "outdent, indent line or selection"],
                                 ["Alt+Up  Down", "move line or selection"],
+                                ["Alt+Z", "wrap or unwrap lines"],
                                 ["Ctrl+L", "select the whole line"],
                                 ["Ctrl+Shift+Up  Down", "add a cursor above, below; Esc or a click removes them"],
+                                ["Search", ""],
+                                ["Ctrl+F", "find; Enter and Shift+Enter go to the next and previous match"],
+                                ["Alt+C  W", "while finding: match case, whole words"],
+                                ["Ctrl+F2", "a cursor at the end of every match of the selection"],
                                 ["Notes", ""],
                                 ["Ctrl+N  O  W", "new, open, close the tab"],
-                                ["Ctrl+Tab, Shift+Tab", "next tab"],
+                                ["Ctrl+Tab", "next tab; with Shift, the previous one"],
                                 ["Alt+1 to 9", "go to that tab"],
                                 ["Ctrl+click", "open a link"],
                                 ["Ctrl+S", "save (notes also save as you type)"],
                                 ["Ctrl+V", "paste, images too"],
-                                ["Esc", "close the panel"],
-                                ["Drag", ""],
-                                ["Into the note", "images are shown; any other file adds its path"],
-                                ["Out of the note", "drag selected text, an image or a tab to any app"]
+                                ["Esc", "close search, extra cursors, then the panel"],
+                                ["Settings", ""],
+                                ["Wrap", Settings.notesWrap ? "on" : "off"],
+                                ["Line numbers", Settings.notesLineNumbers === "relative" ? "relative" : "absolute"],
+                                ["Images, wrapped", Settings.notesImagesWrapped === "fixed" ? "fixed height, scrolls" : "fit the width"],
+                                ["Images, unwrapped", ({ fit: "fit the width", fixed: "fixed height", asis: "actual size" })[Settings.notesImagesUnwrapped] ?? Settings.notesImagesUnwrapped],
+                                ["Fixed image height", Settings.notesImageHeight + " px"],
+                                ["Browser for links", Settings.browser.trim() !== "" ? Settings.browser.trim() : "system default"],
+                                ["Folder", panel.dir],
+                                ["Change these", "Settings > General > Notes"]
                             ]
 
                             Row {
@@ -626,7 +610,7 @@ PanelWindow {
                                 Label {
                                     visible: modelData[1] !== ""
                                     width: helpColumn.width - 142
-                                    wrapMode: Text.WordWrap
+                                    wrapMode: Text.Wrap
                                     text: modelData[1]
                                     color: Theme.colors.muted
                                 }

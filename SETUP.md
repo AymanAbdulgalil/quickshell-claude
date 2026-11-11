@@ -1,7 +1,7 @@
 # Ayman's desktop: full setup record
 
 Everything built for this desktop, and every change made to the system around it, so it can be understood,
-rebuilt or undone. Decisions and rules are in `CLAUDE.md`; open items are in `todo.txt`. Last updated 2026-11-08.
+rebuilt or undone. Decisions and rules are in `CLAUDE.md`; open items are in `todo.txt`. Last updated 2026-11-10.
 
 Machine: Arch Linux laptop "Ay-lap", NVIDIA, 1920×1080 screen `eDP-1`, btrfs. Desktop: Hyprland 0.57 (Lua config)
 with a Quickshell 0.3.2 shell. Login through SDDM.
@@ -41,17 +41,19 @@ Removed: **dunst** (replaced by Quickshell's notifications; its user service is 
 | `Label.qml` | All text in the shell |
 | `DESIGN.md` | The design language |
 | `hyprland/`, `hyprland.json` | The Hyprland GUI: model, schema, Lua generator |
-| `Panels.qml` | Which panel is open (one at a time); closes them on a workspace switch |
+| `Panels.qml` | Which panel is open (one at a time, Notes included); keeps them open across workspace switches; the close key's `closePanel` |
 | `Part.qml`, `parts/` | Swappable drawn elements (icons, clock, workspace marker...) |
 | `bar/` | Bar widgets: workspaces, clock, language, battery, network, Bluetooth, sliders, camera, notifications |
 | `power/` | Power panel, brightness, night mode (screen shaders), power profiles |
 | `network/` | Network panel, hotspot, VPN import |
 | `bluetooth/` | Bluetooth panel |
 | `launcher/` | Launcher and time panel (Super) |
+| `tasks/` | Tasks per day, opened from the time panel's calendar; `TaskStore` sends their reminders |
 | `notifications/` | Notification server, popups, history panel, `SystemEvents.qml` (notifications for automatic events) |
 | `clipboard/` | Clipboard history (`clip.py` is the only writer) |
 | `theming/` | Theme manager, theme switcher panel (Super+T) |
-| `notes/` | Notes panel (Super+I), vim-style editor; files in `~/Notes` |
+| `notes/` | Notes panel (Super+I), Markdown editor with search; files in `~/Notes` |
+| `timer/` | Stopwatch and timers, opened from the time panel's clock; `timers.json` |
 | `settings/` | Settings app (Super+Space) |
 | `controls/` | Shared controls, and `BarPanel` and `PanelLoader` |
 | `sddm/` | The login screen theme source and its one-time root `install.sh` |
@@ -65,10 +67,11 @@ Removed: **dunst** (replaced by Quickshell's notifications; its user service is 
   brightness slider, audio (volume and microphone sliders in one panel), network (Wi-Fi, saved, adapter, hotspot,
   VPN), Bluetooth, notifications history. Windows fade back while any panel is open.
 - **Clipboard**: Super+V, opens in the middle of the screen; history with search, pins, images, QR for links.
-- **Launcher**: Super alone; apps and commands, `!` runs in a terminal; time panel above with a calendar.
+- **Launcher**: Super alone; apps and commands, `!` runs in a terminal; time panel above with a calendar. Clicking a day shows its tasks in the launcher's place, with reminders.
+  Clicking the clock shows the stopwatch (runs, laps, history) and timers (a length or a time of day, ringing with a notification) there instead; the clock marks both.
 - **Notifications**: popups top right, sounds, do not disturb; also sent by the system itself for network joins
   and switches, VPN up or down, Bluetooth devices, scheduled night mode, automatic battery saver, low battery.
-- **Notes**: Super+I, slides in from the right; tabs of Markdown files in `~/Notes`, light vim keys, images, drag and drop.
+- **Notes**: Super+I, fades in at the right like any panel; tabs of Markdown files in `~/Notes`, styles shown as you type, images by Ctrl+V, search (Ctrl+F).
 - **Settings app**: Super+Space; Appearance (Themes, Bar and panels, Windows, Animations), Hyprland (Monitors, Input, Keybinds, Window rules, Startup, All options), System (Display, Power, Network, Bluetooth, Notifications, General).
 - **Themes**: presets (wallpaper, colors from palette, wallpaper or custom, font, corners, gaps, window look).
   Super+T slides up a searchable row of presets.
@@ -90,7 +93,7 @@ Written on every theme change by `themes/apply.py` (originals kept once in
 | `~/.config/btop/themes/quickshell.theme`, `btop.conf` (`color_theme`) | btop colors; a running btop reloads on SIGUSR2 |
 | `~/.config/hypr/theme.lua` | Every visual Hyprland option, curves, animations, cursor, background color, startup wallpaper |
 | `~/.config/hypr/hyprlock-colors.conf` | Lock screen colors |
-| `/var/lib/quickshell-sddm/` | Login screen theme, colors (`theme.conf`) and a copy of the wallpaper |
+| `/var/lib/quickshell-sddm/` | Login screen theme, colors (`theme.conf`) and a copy of the wallpaper (the preset's login wallpaper if it has one) |
 
 Other user files:
 
@@ -103,6 +106,8 @@ Other user files:
 | `~/.config/hypr/after-sleep.sh` | Nudges the cursor after wake so a stalled lock screen redraws |
 | `~/.local/share/applications/quickshell-settings.desktop` | Settings app entry |
 | `~/.local/share/quickshell/clipboard/` | Clipboard history (private, 700) |
+| `~/.local/share/quickshell/tasks.json` | Tasks and their reminders |
+| `~/.local/share/quickshell/timers.json` | Stopwatch runs, laps and history; timers |
 | `~/.local/share/vpn/` | Imported VPN files (700); they stay when the original is deleted |
 | `$XDG_RUNTIME_DIR/quickshell-night` | Night mode shaders (wiped at reboot) |
 
@@ -131,8 +136,9 @@ starting it at every boot.
 | Super+I | Notes |
 | Super+Space | Settings |
 | Super+T | Theme switcher |
-| Super+Q / F / P / J | Close window / float / pseudo / split |
-| Super+1..0, Super+Shift+1..0 | Go to / move window to workspace |
+| Super+Q / F / P / J | Close window (or the open panel) / float / pseudo / split. While a panel is open, F, P, J do nothing |
+| Super+1..0, Super+Shift+1..0 | Go to / move window to workspace (moving does nothing while a panel is open) |
+| Super+arrows, Super+Shift+S | Focus a window / move it to the special workspace (both nothing while a panel is open) |
 | Super+S, Super+Shift+S | Special workspace |
 | Super+L | Lock |
 | Super+M | Exit Hyprland |
@@ -183,3 +189,29 @@ starting it at every boot.
 ## 2026-11-09, round 6
 
 Backup before it: `~/.local/share/quickshell/backups/pre-round6-2026-11-09.tar.gz`. Bar icons 4:3, wire speaker, bar direction rebuild, group width fix, one battery symbol slot, power facts in a grid. Stay on kept in `$XDG_RUNTIME_DIR/quickshell-stay-on`, its inhibitor tied to the shell with `setpriv` (util-linux). Notes extended, new `notes/NoteTable.qml`, new settings `notesWrap`, `notesLineNumbers`, `notesImagesWrapped`, `notesImagesUnwrapped`, `notesImageHeight`, `browser`.
+
+## 2026-11-10, round 7
+
+Before it: git commit `aa84f95` (`git diff aa84f95` shows everything; `presets.json` and `settings.json` were already changed). Bar icon size separate from
+bar text (`barIconSize`), bar text in whole-pixel boxes (`BarText.qml`); charging arrow heads; Lucide-style reboot and refresh glyph; power grid spacing; audio
+panel without reserved room, floating device lists (`BarPanel.popupOwner`); Super+Q closes panels (the close bind in `hyprland.lua` is now a Lua function);
+panels stay open across workspace switches; Notes became an ordinary panel without drag and drop, with search, Ctrl+F2, its own scrolling
+(`notes/AutoScrollBar.qml`) and help listing its settings; login screen fades from and to black, Hyprland starts on black (`misc:background_color`),
+separate login wallpaper per preset (`loginWallpaper`, `settings/WallpaperGrid.qml`); time panel separator; tasks (`tasks/`, `tasks.json`).
+
+## 2026-11-11, round 8
+
+Before it: git commit `aa84f95` plus the uncommitted round 7. Outline Arch logo, bar icons in 1 px steps; the bar has its own font, weight, corners
+and border, and a gap per side (`barGapEdge`, `barGapInner`, `barGapStart`, `barGapEnd`; `barGap` is migrated by `ThemePresets.migrate`); panels have
+their own font and gaps per side or follow the windows' (`panelGapSide`, `panelGapFar`, `panelGapBetween`, `panelGapsFollow`); bar and panel motion
+(duration, curve, fade, slide; `controls/PanelShow.qml`, `settings/MotionRows.qml`). Settings: cursor moved to Themes, Bar and panels in two sections.
+Window controls (float, pseudo, split, focus, move window) are wrapped in `quickshell_guard` in `hyprland.lua`. Notes wrap toggle in one frame.
+Stopwatch and timers (`timer/`, `timers.json`), wider clock with stopwatch arcs and timer hands. `TaskStore` and `TimerStore` write synchronously.
+
+## 2026-11-11, round 9
+
+Before it: rounds 7 and 8 uncommitted on `aa84f95`. 24-hour bar time and clocks (24-hour analog dial); stopwatch drawn as tinted wedges with laps on the
+rim, one timer hand; timers picked with steppers (`timer/TimeWheel.qml`; typed parsing removed from `TimerStore`, `addAt` added). Accent element per preset
+(`accentMark`; `parts/accent/shapes.js`, `controls/AccentMark.qml`) on the workspaces, calendar and clock; calendar shows up to five marks and a plus. Icon
+style per preset (`iconStyle`: thin, thick, filled) in every drawn icon. Arch logo on the icon grid. Notes: quote blocks no longer flash to full width while
+typing unwrapped (`updateLayout` reads the current text). Settings > Themes has an Icons section.

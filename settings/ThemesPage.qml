@@ -1,10 +1,13 @@
 import QtQuick
 import QtQuick.Layouts
 import Qt.labs.folderlistmodel
+import Quickshell.Io
 import Quickshell.Widgets
 import ".."
 import "../controls"
 import "../theming"
+import "../controls/Format.js" as Format
+import "../parts/accent/shapes.js" as Shapes
 
 // Theme presets. Clicking a preset switches to it; everything below edits the active one.
 ColumnLayout {
@@ -13,6 +16,7 @@ ColumnLayout {
     readonly property var preset: ThemePresets.active
     // The custom color a wallpaper swatch goes to.
     property string editing: ""
+    property var cursors: []
 
     spacing: Theme.space.xs
 
@@ -85,63 +89,23 @@ ColumnLayout {
     SettingSection {
         text: "Wallpaper"
     }
-    GridView {
-        id: wallpapers
+    WallpaperGrid {
+        selected: page.preset.wallpaper
+        onPicked: path => ThemeManager.edit({ wallpaper: path })
+    }
 
-        Layout.fillWidth: true
-        Layout.preferredHeight: 190
-        clip: true
-        cellWidth: width / 5
-        cellHeight: cellWidth * 0.62
-        boundsBehavior: Flickable.StopAtBounds
-        cacheBuffer: 200
-
-        model: FolderListModel {
-            folder: "file://" + Settings.wallpaperDir
-            nameFilters: ["*.jpg", "*.jpeg", "*.png", "*.webp"]
-            showDirs: false
+    // The login screen can have a wallpaper of its own (2026-11-10). Off, it shows the desktop's.
+    SettingRow {
+        label: "Separate login wallpaper"
+        SettingSwitch {
+            checked: (page.preset.loginWallpaper ?? "") !== ""
+            onToggled: on => ThemeManager.edit({ loginWallpaper: on ? page.preset.wallpaper : "" })
         }
-
-        delegate: Item {
-            id: tile
-
-            required property string filePath
-
-            width: GridView.view.cellWidth
-            height: GridView.view.cellHeight
-
-            ClippingRectangle {
-                id: thumb
-
-                anchors.fill: parent
-                anchors.margins: 3
-                radius: Math.max(0, Theme.shape.controlRadius - 2)
-                color: Theme.colors.surfaceRaised
-
-                Image {
-                    anchors.fill: parent
-                    asynchronous: true
-                    sourceSize.width: 160
-                    fillMode: Image.PreserveAspectCrop
-                    source: "file://" + tile.filePath
-                }
-            }
-
-            Rectangle {
-                anchors.fill: thumb
-                radius: thumb.radius
-                color: "transparent"
-                visible: page.preset.wallpaper === tile.filePath
-                border.width: 2
-                border.color: Theme.colors.accent
-            }
-
-            MouseArea {
-                anchors.fill: parent
-                cursorShape: Qt.PointingHandCursor
-                onClicked: ThemeManager.edit({ wallpaper: tile.filePath })
-            }
-        }
+    }
+    WallpaperGrid {
+        visible: (page.preset.loginWallpaper ?? "") !== ""
+        selected: page.preset.loginWallpaper ?? ""
+        onPicked: path => ThemeManager.edit({ loginWallpaper: path })
     }
 
     SettingSection {
@@ -260,6 +224,82 @@ ColumnLayout {
     FontRow {
         label: "Monospace"
         field: "fontMono"
+    }
+
+    // Cursor themes installed for everyone or for this user, read when the page opens.
+    Process {
+        running: true
+        command: ["sh", "-c", "for d in /usr/share/icons/*/cursors \"$HOME\"/.local/share/icons/*/cursors; do [ -d \"$d\" ] && basename \"$(dirname \"$d\")\"; done | sort -u"]
+
+        stdout: StdioCollector {
+            onStreamFinished: page.cursors = text.split("\n").filter(t => t !== "")
+        }
+    }
+
+    SettingSection {
+        text: "Cursor"
+    }
+    SettingRow {
+        label: "Theme"
+        Dropdown {
+            options: [["", "System default"]].concat(page.cursors.map(c => [c, c]))
+            value: page.preset.cursorTheme
+            onPicked: v => ThemeManager.edit({ cursorTheme: v })
+        }
+    }
+    ShellNumberRow {
+        label: "Size"
+        field: "cursorSize"
+        options: [16, 20, 24, 28, 32, 36, 40, 48]
+        format: Format.px
+    }
+
+    // Icons and the accent element (2026-11-11).
+    SettingSection {
+        text: "Icons"
+    }
+    SettingRow {
+        label: "Style"
+        Dropdown {
+            options: [["thin", "Thin lines"], ["thick", "Thick lines"], ["filled", "Filled"]]
+            value: page.preset.iconStyle
+            onPicked: v => ThemeManager.edit({ iconStyle: v })
+        }
+    }
+    SettingRow {
+        label: "Accent element"
+
+        Row {
+            spacing: Theme.space.xs
+
+            Repeater {
+                model: Shapes.kinds
+
+                InteractiveSurface {
+                    id: tile
+
+                    required property var modelData
+
+                    width: 34
+                    height: 34
+                    selected: page.preset.accentMark === modelData[0]
+                    onClicked: ThemeManager.edit({ accentMark: modelData[0] })
+
+                    AccentMark {
+                        anchors.centerIn: parent
+                        kind: tile.modelData[0]
+                        size: 16
+                        color: tile.contentColor
+
+                        Behavior on color {
+                            ColorMotion {
+                                preset: Theme.motion.quick
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     SettingSection {

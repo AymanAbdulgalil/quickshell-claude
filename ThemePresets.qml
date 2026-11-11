@@ -12,6 +12,7 @@ Singleton {
     readonly property var defaults: ({
             name: "Untitled",
             wallpaper: "",
+            loginWallpaper: "",     // "" shows the desktop wallpaper at login too
             colors: "palette",      // "palette", "wallpaper" or "custom"
             palette: "nord",        // for "palette": an id from themes/palettes.js
             dark: true,             // for "wallpaper"
@@ -21,20 +22,48 @@ Singleton {
             fontMono: "",           // "" uses `font`
             fontSmall: 11,          // the rest of the type scale follows it
             fontBar: 13,
+            barIconSize: 12,        // drawn height of bar icons
             fontDisplay: 30,
-            fontWeight: 500,
-            widgetRadius: 14,       // panels; the bar and controls are scaled from it
+            fontWeight: 500,        // panels
+            widgetRadius: 14,       // panels; their controls are scaled from it
             panelBorder: 1,
+            panelFont: "",          // "" uses `font`
+            // The bar has its own font, weight, corners and border (2026-11-11).
+            barFont: "",            // "" uses `font`
+            barWeight: 500,
+            barRadius: 10,
+            barBorder: 1,
             density: 1,             // 0.9 compact, 1 regular, 1.15 roomy
             barHeight: 32,
             barPosition: "top",     // or "bottom", "left", "right"
-            panelBarGap: 6,         // between the bar and its panels
-            barGap: 10,             // around the bar
+            // Around the bar, each side apart, named from the bar: the screen edge it is on, the side facing the windows,
+            // and its two ends (left and right, or top and bottom).
+            barGapEdge: 10,
+            barGapInner: 0,
+            barGapStart: 10,
+            barGapEnd: 10,
             barPadding: 10,
             barItemSpacing: 10,
             barGroupSpacing: 18,
+            // Panels: from the bar, from the screen's sides, from the far edge, and between two panels shown together.
+            // panelGapsFollow lines them up with the windows instead (Hyprland's outer gap, and inner gap between).
+            panelBarGap: 6,
+            panelGapSide: 10,
+            panelGapFar: 10,
+            panelGapBetween: 5,
+            panelGapsFollow: false,
             motionScale: 1,         // 0 turns the shell's animations off
+            // Panels and bar: duration, curve (a name from `curves`, or "default"), and whether they fade and slide.
             panelSpeed: 160,
+            panelCurve: "default",
+            panelFade: true,
+            panelSlide: false,
+            barSpeed: 180,
+            barCurve: "default",
+            barFade: true,
+            iconStyle: "thin",     // "thin" or "thick" wire, or "filled"
+            accentMark: "dot",     // the accent element, parts/accent/shapes.js
+            barSlide: true,         // the bar slides in at start, and icons that come and go slide the others aside
             fadeFocused: 0.55,      // application windows while a panel is open
             fadeUnfocused: 0.4,
             analogClock: "clock/Analog",
@@ -110,6 +139,32 @@ Singleton {
         return merged;
     }
 
+    // Presets saved before the bar had its own look and gaps (2026-11-11) keep what they had: the bar's corners were
+    // 0.72 of the panels', its weight and border were the panels', and one gap went round the bar and beside the panels.
+    function migrate(presets) {
+        let changed = false;
+        const out = presets.map(p => {
+            const q = Object.assign({}, p);
+            if ("widgetRadius" in q && !("barRadius" in q))
+                q.barRadius = Math.round(q.widgetRadius * 0.72);
+            if ("fontWeight" in q && !("barWeight" in q))
+                q.barWeight = q.fontWeight;
+            if ("panelBorder" in q && !("barBorder" in q))
+                q.barBorder = q.panelBorder;
+            if ("barGap" in q) {
+                for (const key of ["barGapEdge", "barGapStart", "barGapEnd", "panelGapSide", "panelGapFar"])
+                    if (!(key in q))
+                        q[key] = q.barGap;
+                delete q.barGap;
+            }
+            if (JSON.stringify(q) !== JSON.stringify(p))
+                changed = true;
+            return q;
+        });
+        if (changed)
+            list = out;
+    }
+
     function find(id) {
         return all.find(p => p.id === id) ?? null;
     }
@@ -143,6 +198,7 @@ Singleton {
         path: Quickshell.shellPath("presets.json")
         blockLoading: true
         onAdapterUpdated: writeAdapter()
+        onLoaded: root.migrate(data.presets)
         onLoadFailed: error => {
             if (error === FileViewError.FileNotFound) {
                 data.presets = [{ id: "nord", name: "Nord", colors: "palette", palette: "nord" }];

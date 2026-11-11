@@ -11,15 +11,16 @@
     "idleScreenOff": 300,
     "idleSleep": 600,
     "launcherUsage": {
-        "app:code-oss": 2,
-        "app:com.anthropic.Claude": 4,
-        "app:firefox": 8,
+        "app:code-oss": 3,
+        "app:com.anthropic.Claude": 8,
+        "app:firefox": 11,
         "app:io.github.Qalculate.qalculate-qt": 4,
         "app:kitty": 26,
+        "app:libreoffice-writer": 2,
         "app:linguist": 3,
         "app:org.gnome.Cheese": 1,
         "app:org.wireshark.Wireshark": 1,
-        "app:thunar": 10,
+        "app:thunar": 11,
         "bin:1password2john": 1,
         "bin:7za": 1,
         "bin:claude-desktop": 1,
@@ -32,13 +33,13 @@
     "nightEnd": 390,
     "nightFadeSeconds": 7,
     "nightStart": 1290,
-    "nightTemperature": 4000,
-    "normalBrightness": 1,
+    "nightTemperature": 4500,
+    "normalBrightness": 0.48225,
     "normalTemperature": 6500,
-    "notesCurrent": "Note 1.md",
+    "notesCurrent": "test 2.md",
     "notesImageHeight": 300,
-    "notesImagesUnwrapped": "asis",
-    "notesImagesWrapped": "fixed",
+    "notesImagesUnwrapped": "fixed",
+    "notesImagesWrapped": "fit",
     "notesLineNumbers": "absolute",
     "notesTabs": [
         "test.md",
@@ -50,7 +51,12 @@
         "Bluetooth",
         "Night mode",
         "flameshot",
-        "Firefox"
+        "Firefox",
+        "Network",
+        "Tasks",
+        "kitty",
+        "Timer",
+        "Claude"
     ],
     "notificationMaxPopups": 8,
     "notificationRules": {
@@ -66,7 +72,7 @@
     "terminal": "kitty",
     "themeApps": {
     },
-    "themePreset": "mine",
+    "themePreset": "preset1793941087895",
     "wallpaperDir": "/home/ayman/.local/share/backgrounds",
     "wallpaperPalettes": {
         "/home/ayman/.local/share/backgrounds/12.png|dark": {

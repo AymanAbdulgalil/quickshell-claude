@@ -13,6 +13,8 @@ import "clipboard"
 import "theming"
 import "settings"
 import "notes"
+import "tasks"
+import "timer"
 
 // Everything inside the bar, plus the power widget. Bar.qml loads this in the background
 // so the bar itself appears straight away, even while the system is still starting.
@@ -28,6 +30,10 @@ Item {
     readonly property var clipboard: ClipboardState
     // Holds the Super shortcut. Singletons only exist once something refers to them, and the panel is built on demand.
     readonly property var launcher: LauncherState
+    // Sends task reminders, so it must live whether or not the launcher was opened.
+    readonly property var tasks: TaskStore
+    // Rings timers, so it must live whether or not the launcher was opened.
+    readonly property var timers: TimerStore
 
     readonly property bool vertical: Theme.layout.barVertical
 
@@ -84,7 +90,7 @@ Item {
         // Whole pixels wide, so the icons after it never land between pixels and blur. Spaced from the status icons.
         Item {
             implicitWidth: Math.ceil(language.implicitWidth)
-            implicitHeight: Math.ceil(language.implicitHeight)
+            implicitHeight: language.height
 
             Language {
                 id: language
@@ -199,10 +205,11 @@ Item {
     }
 
     PanelLoader {
-        wanted: Panels.notesOpen
+        panelName: "notes"
 
         NotesPanel {
             homeScreen: root.barScreen
+            barWindow: root.barWindow
         }
     }
 
@@ -256,10 +263,11 @@ Item {
         panelName: "audio"
 
         SliderPanel {
+            id: audioPanel
+
             name: "audio"
             homeScreen: root.barScreen
             barWindow: root.barWindow
-            fixedHeight: Theme.layout.soundPanelHeight
 
             SliderRow {
                 slot: "volumeIcon"
@@ -270,7 +278,7 @@ Item {
             }
 
             DevicePicker {
-                which: "output"
+                panel: audioPanel
                 devices: AudioState.sinks
                 current: AudioState.sink
                 onPicked: node => AudioState.setSink(node)
@@ -286,15 +294,10 @@ Item {
             }
 
             DevicePicker {
-                which: "input"
+                panel: audioPanel
                 devices: AudioState.sources
                 current: AudioState.source
                 onPicked: node => AudioState.setSource(node)
-            }
-
-            // Keeps the rows at the top of the fixed height; an open device list uses this room.
-            Item {
-                Layout.fillHeight: true
             }
         }
     }

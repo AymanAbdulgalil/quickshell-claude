@@ -7,6 +7,8 @@ import "../.."
 // Inputs: discoverable, btState: connected | idle | searching | connecting | changing | off | blocked | none
 // dots: one color per connected device, drawn as a vertical column beside the rune.
 Canvas {
+    readonly property var iconWatch: [Theme.icons.style]
+    onIconWatchChanged: requestPaint()
     // Colors below come from the theme, so repaint when it changes.
     readonly property var themeWatch: Theme.palette
     onThemeWatchChanged: requestPaint()
@@ -116,18 +118,41 @@ Canvas {
         ctx.translate(-8, -8);
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Theme.icons.stroke;
 
         const cx = 9;
         ctx.strokeStyle = mixed(runeLevel);
-        ctx.beginPath();
-        ctx.moveTo(cx - 4, 4.5);
-        ctx.lineTo(cx + 4, 11.5);
-        ctx.lineTo(cx, 15);
-        ctx.lineTo(cx, 1);
-        ctx.lineTo(cx + 4, 4.5);
-        ctx.lineTo(cx - 4, 11.5);
-        ctx.stroke();
+        const rune = () => {
+            ctx.beginPath();
+            ctx.moveTo(cx - 4, 4.5);
+            ctx.lineTo(cx + 4, 11.5);
+            ctx.lineTo(cx, 15);
+            ctx.lineTo(cx, 1);
+            ctx.lineTo(cx + 4, 4.5);
+            ctx.lineTo(cx - 4, 11.5);
+            ctx.stroke();
+        };
+        // Filled: a rounded badge, as tall as the outline rune, with a smaller rune cut out of it.
+        if (Theme.icons.filled) {
+            ctx.fillStyle = mixed(runeLevel);
+            ctx.beginPath();
+            ctx.moveTo(cx - 5.2, 5.6);
+            ctx.arc(cx, 5.6, 5.2, Math.PI, 0);
+            ctx.lineTo(cx + 5.2, 10.4);
+            ctx.arc(cx, 10.4, 5.2, 0, Math.PI);
+            ctx.closePath();
+            ctx.fill();
+            ctx.save();
+            ctx.globalCompositeOperation = "destination-out";
+            ctx.translate(cx, 8);
+            ctx.scale(0.6, 0.6);
+            ctx.translate(-cx, -8);
+            ctx.lineWidth = 1.3 / 0.6;
+            rune();
+            ctx.restore();
+        } else {
+            rune();
+        }
 
         // Visible to other devices: one wave on the left.
         if (waveLevel > 0) {

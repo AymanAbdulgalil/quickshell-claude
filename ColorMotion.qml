@@ -6,5 +6,6 @@ ColorAnimation {
     property var preset: Theme.motion.standard
 
     duration: preset.duration
-    easing.type: preset.easing
+    easing.type: preset.bezier?.length ? Easing.BezierSpline : preset.easing
+    easing.bezierCurve: preset.bezier ?? []
 }

@@ -36,11 +36,11 @@ PanelWindow {
     Component.onCompleted: Qt.callLater(() => shown = open)
 
     screen: homeScreen
-    visible: shown || card.opacity > 0
+    visible: window.shown || show.progress > 0
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: Panels.keyboardMode(open)
 
     anchors {
         top: true
@@ -75,12 +75,18 @@ PanelWindow {
             }
         }
 
-        opacity: window.shown ? 1 : 0
+        opacity: show.fade
+        transform: Translate {
+            x: show.dx
+            y: show.dy
+        }
 
-        Behavior on opacity {
-            Motion {
-                preset: Theme.motion.panel
-            }
+        PanelShow {
+            id: show
+
+            shown: window.shown
+            from: Theme.layout.barEdge === "bottom" ? "bottom" : "top"
+            distance: Theme.space.xxl * 2
         }
 
         // Clicks inside must not reach the area that closes the window.

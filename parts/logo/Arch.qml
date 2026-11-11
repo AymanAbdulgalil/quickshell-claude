@@ -1,24 +1,44 @@
 import QtQuick
 import "../.."
 
-// The Arch Linux logo. Inputs: tint, iconSize
+// The Arch Linux logo, on an icon's canvas and grid like the status icons, spanning y 1 to 15 with its line (2026-11-11).
+// The inner arch is a little wider than the real logo's, so it stays open at bar sizes. Thin and thick lines draw the
+// outline; filled draws the logo solid. Inputs: tint, iconSize
 Canvas {
     readonly property color tint: parent.tint
+    readonly property var iconWatch: [Theme.icons.style]
 
-    implicitWidth: Math.ceil((parent.iconSize - 2) * 24 / 22.79)
+    implicitWidth: parent.iconSize
     implicitHeight: parent.iconSize
+    onIconWatchChanged: requestPaint()
     onTintChanged: requestPaint()
     onHeightChanged: requestPaint()
     onPaint: {
         const ctx = getContext("2d");
         ctx.reset();
-        // The drawing spans 22.79 of its 24 units, from y 0.605; it is fitted exactly like the status icons.
-        const unit = Theme.iconUnit(height) * 14 / 22.79;
-        ctx.translate(0, height / 2);
+        const unit = Theme.iconUnit(height);
+        // The thin line is lighter than the icons', and the thick one too: the arch closes up otherwise.
+        const line = Theme.icons.stroke * 0.8;
+        const inset = line / 2;
+        ctx.translate(width / 2 - 7 * unit, height / 2 - 8 * unit);
         ctx.scale(unit, unit);
-        ctx.translate(0, -12);
+        ctx.strokeStyle = tint;
         ctx.fillStyle = tint;
-        ctx.path = "M11.39.605C10.376 3.092 9.764 4.72 8.635 7.132c.693.734 1.543 1.589 2.923 2.554-1.484-.61-2.496-1.224-3.252-1.86C6.86 10.842 4.596 15.138 0 23.395c3.612-2.085 6.412-3.37 9.021-3.862a6.61 6.61 0 0 1-.171-1.547l.003-.115c.058-2.315 1.261-4.095 2.687-3.973 1.426.12 2.534 2.096 2.478 4.409a6.52 6.52 0 0 1-.146 1.243c2.58.505 5.352 1.787 8.914 3.844-.702-1.293-1.33-2.459-1.929-3.57-.943-.73-1.926-1.682-3.933-2.713 1.38.359 2.367.772 3.137 1.234-6.09-11.334-6.582-12.84-8.67-17.74z";
-        ctx.fill();
+        ctx.lineWidth = line;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(7, 1 + inset);
+        ctx.lineTo(0.2 + inset, 15 - inset);
+        ctx.bezierCurveTo(2.2, 13.9, 3.7, 13.1, 5.15, 12.75);
+        ctx.lineTo(5.1, 11.6);
+        ctx.bezierCurveTo(5.1, 9.85, 5.95, 8.75, 7, 8.75);
+        ctx.bezierCurveTo(8.05, 8.75, 8.9, 9.85, 8.9, 11.6);
+        ctx.lineTo(8.85, 12.75);
+        ctx.bezierCurveTo(10.3, 13.1, 11.8, 13.9, 13.8 - inset, 15 - inset);
+        ctx.closePath();
+        if (Theme.icons.filled)
+            ctx.fill();
+        ctx.stroke();
     }
 }

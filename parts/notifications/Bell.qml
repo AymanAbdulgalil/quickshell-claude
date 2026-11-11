@@ -1,8 +1,10 @@
 import QtQuick
 import "../.."
 
-// Inputs: count, off (do not disturb), tint, iconSize
+// Inputs: count, off (do not disturb), tint, iconSize. Filled: a solid bell and clapper.
 Canvas {
+    readonly property var iconWatch: [Theme.icons.style]
+    onIconWatchChanged: requestPaint()
     // Colors below come from the theme, so repaint when it changes.
     readonly property var themeWatch: Theme.palette
     onThemeWatchChanged: requestPaint()
@@ -29,7 +31,7 @@ Canvas {
         ctx.translate(-8, -8.15);
         ctx.strokeStyle = tint;
         ctx.fillStyle = tint;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Theme.icons.stroke;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         // Fills the 16 by 16 grid like the other status icons.
@@ -41,9 +43,13 @@ Canvas {
         ctx.lineTo(12.6, 9.8);
         ctx.lineTo(14.2, 12);
         ctx.closePath();
+        if (Theme.icons.filled)
+            ctx.fill();
         ctx.stroke();
         ctx.beginPath();
         ctx.arc(8, 12.8, 1.9, 0, Math.PI);
+        if (Theme.icons.filled)
+            ctx.fill();
         ctx.stroke();
 
         if (off) {

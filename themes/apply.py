@@ -427,8 +427,9 @@ def hyprland(p, look):
     # Borders and background follow the palette unless the preset sets its own.
     options = {"general:col.active_border": {"colors": [hypr_rgba(p["accent"]), hypr_rgba(p["accentAlt"])], "angle": 45},
                "general:col.inactive_border": hypr_rgba(p["surface"]),
-               # Shown before the wallpaper draws at login: the login screen goes to the theme's background, not black.
-               "misc:background_color": "rgb(" + p["surface"][1:] + ")"}
+               # Shown before the wallpaper draws at login. The login screen fades out to black (2026-11-10), so the
+               # desktop starts on black too and its wallpaper fades in from there.
+               "misc:background_color": "rgb(000000)"}
     options.update(look.get("hypr", {}))
     calls = config_calls(options)
     calls += [curve_call(c) for c in look.get("curves", [])]
@@ -440,7 +441,7 @@ def hyprland(p, look):
     lines = [f"-- {MARK}", "-- hyprland.lua reads this, and its autostart uses the wallpaper."]
     if look.get("wallpaper"):
         lines.append(f"quickshell_wallpaper = {lua_string(look['wallpaper'])}")
-    lines.append(f'quickshell_background = "{p["surface"][1:]}"')
+    lines.append('quickshell_background = "000000"')
     # One eval: spawning hyprctl per option is what made sliders lag. theme.lua is only replaced when Hyprland took it,
     # because a bad value in it would show Hyprland's error banner at every reload.
     live = calls if not look.get("live") else config_calls({**options, **look["live"]}) + calls[len(config_calls(options)):]
@@ -514,7 +515,8 @@ def sddm(p, look):
     for name in ("Main.qml", "metadata.desktop"):
         shutil.copyfile(os.path.join(SDDM_SOURCE, name), os.path.join(SDDM_DIR, name))
     background = ""
-    wallpaper = look.get("wallpaper")
+    # Its own wallpaper if the preset has one, otherwise the desktop's.
+    wallpaper = look.get("loginWallpaper") or look.get("wallpaper")
     if wallpaper and os.path.isfile(wallpaper):
         ext = os.path.splitext(wallpaper)[1].lower() or ".jpg"
         background = os.path.join(SDDM_DIR, "background" + ext)

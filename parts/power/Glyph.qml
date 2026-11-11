@@ -2,11 +2,16 @@ import QtQuick
 import "../.."
 
 // Inputs: glyph, tint, optionally iconSize. Glyphs are drawn on an 18 by 18 grid.
+// Icon style (2026-11-11): the line follows Theme.icons.stroke; filled fills each glyph's body (body()) and cuts the details
+// inside it out. Glyphs made only of lines stay lines.
 Canvas {
     id: root
 
     readonly property string glyph: parent.glyph
     readonly property color tint: parent.tint
+    readonly property var iconWatch: [Theme.icons.style]
+
+    onIconWatchChanged: requestPaint()
 
     implicitWidth: parent.iconSize ?? 18
     implicitHeight: parent.iconSize ?? 18
@@ -18,22 +23,40 @@ Canvas {
         ctx.scale(width / 18, height / 18);
         ctx.strokeStyle = tint;
         ctx.fillStyle = tint;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Theme.icons.stroke;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
+        const filled = Theme.icons.filled;
+        // Ends the body drawn so far (closed shapes only): filled when the style asks, then outlined. With `cut`, what
+        // follows is detail cut out of a filled body.
+        const body = cut => {
+            if (filled)
+                ctx.fill();
+            ctx.stroke();
+            ctx.beginPath();
+            if (filled && cut)
+                ctx.globalCompositeOperation = "destination-out";
+        };
         ctx.beginPath();
 
         switch (glyph) {
         case "night":
             ctx.arc(9, 9, 6.5, Math.PI * 0.2, Math.PI * 1.45);
             ctx.quadraticCurveTo(6.5, 8, 14.2, 12.8);
+            ctx.closePath();
+            body(false);
             break;
         case "stayOn":
             ctx.moveTo(1.5, 9);
             ctx.quadraticCurveTo(9, 1.5, 16.5, 9);
             ctx.quadraticCurveTo(9, 16.5, 1.5, 9);
-            ctx.stroke();
-            ctx.beginPath();
+            body(true);
+            if (filled) {
+                ctx.arc(9, 9, 3.3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalCompositeOperation = "source-over";
+                ctx.beginPath();
+            }
             ctx.arc(9, 9, 2.2, 0, Math.PI * 2);
             ctx.fill();
             return;
@@ -43,6 +66,7 @@ Canvas {
             ctx.lineTo(14.5, 16);
             ctx.lineTo(3.5, 16);
             ctx.closePath();
+            body(false);
             ctx.moveTo(6, 8.5);
             ctx.lineTo(6, 5.5);
             ctx.arc(9, 5.5, 3, Math.PI, 0);
@@ -87,10 +111,22 @@ Canvas {
             ctx.lineTo(12.5, 12.5);
             break;
         case "reboot":
-            ctx.arc(9, 9.5, 6.5, -Math.PI * 0.35, Math.PI * 1.35);
-            ctx.moveTo(11.8, 1.5);
-            ctx.lineTo(12.2, 3.9);
-            ctx.lineTo(14.8, 3.2);
+            // Lucide's rotate-ccw on its 24 grid: a circle running anticlockwise into an L-shaped head at the upper left, which
+            // stays readable at 16 px where line or filled heads blur into the arc.
+            ctx.save();
+            ctx.translate(0.5, 0.5);
+            ctx.scale(0.7, 0.7);
+            ctx.lineWidth = Theme.icons.stroke / 0.7;
+            ctx.beginPath();
+            ctx.arc(12, 12, 9, Math.PI, -Math.PI / 2, true);
+            ctx.arc(12, 12, 9, -Math.PI / 2, -Math.PI * 0.76, true);
+            ctx.lineTo(3, 8);
+            ctx.moveTo(3, 3);
+            ctx.lineTo(3, 8);
+            ctx.lineTo(8, 8);
+            ctx.stroke();
+            ctx.restore();
+            ctx.beginPath();
             break;
         case "qr":
             ctx.moveTo(3, 3);
@@ -108,6 +144,7 @@ Canvas {
             ctx.lineTo(7, 15);
             ctx.lineTo(3, 15);
             ctx.closePath();
+            body(false);
             ctx.moveTo(11, 11);
             ctx.lineTo(11, 15);
             ctx.moveTo(15, 11);
@@ -124,8 +161,9 @@ Canvas {
             ctx.lineTo(5, 10.5);
             ctx.lineTo(7, 7.5);
             ctx.closePath();
-            if (glyph === "pinned")
+            if (glyph === "pinned" && !filled)
                 ctx.fill();
+            body(false);
             ctx.moveTo(9, 10.5);
             ctx.lineTo(9, 15.5);
             break;
@@ -148,6 +186,7 @@ Canvas {
             ctx.lineTo(16, 6);
             ctx.lineTo(16, 14.5);
             ctx.closePath();
+            body(false);
             break;
         case "file":
             ctx.moveTo(4, 2);
@@ -156,6 +195,7 @@ Canvas {
             ctx.lineTo(14, 16);
             ctx.lineTo(4, 16);
             ctx.closePath();
+            body(false);
             break;
         case "pencil":
             ctx.moveTo(3.5, 14.5);
@@ -164,20 +204,27 @@ Canvas {
             ctx.lineTo(14.2, 6.2);
             ctx.lineTo(6.6, 13.8);
             ctx.closePath();
+            body(true);
             ctx.moveTo(10.2, 5.4);
             ctx.lineTo(12.6, 7.8);
             break;
         case "trash":
+            ctx.moveTo(4.5, 5);
+            ctx.lineTo(5.3, 15.5);
+            ctx.lineTo(12.7, 15.5);
+            ctx.lineTo(13.5, 5);
+            ctx.closePath();
+            body(false);
             ctx.moveTo(3, 5);
             ctx.lineTo(15, 5);
             ctx.moveTo(7, 5);
             ctx.lineTo(7, 3);
             ctx.lineTo(11, 3);
             ctx.lineTo(11, 5);
-            ctx.moveTo(4.5, 5);
-            ctx.lineTo(5.3, 15.5);
-            ctx.lineTo(12.7, 15.5);
-            ctx.lineTo(13.5, 5);
+            ctx.stroke();
+            ctx.beginPath();
+            if (filled)
+                ctx.globalCompositeOperation = "destination-out";
             ctx.moveTo(7.6, 8);
             ctx.lineTo(7.8, 12.5);
             ctx.moveTo(10.4, 8);
@@ -198,6 +245,7 @@ Canvas {
             ctx.lineTo(15.5, 14.5);
             ctx.lineTo(2.5, 14.5);
             ctx.closePath();
+            body(true);
             ctx.moveTo(2.5, 7.5);
             ctx.lineTo(15.5, 7.5);
             ctx.moveTo(2.5, 11);
@@ -242,6 +290,7 @@ Canvas {
             ctx.lineTo(12, 16);
             ctx.lineTo(6, 16);
             ctx.closePath();
+            body(true);
             ctx.moveTo(8.5, 13.5);
             ctx.lineTo(9.5, 13.5);
             break;
@@ -251,6 +300,7 @@ Canvas {
             ctx.lineTo(15, 11.5);
             ctx.lineTo(3, 11.5);
             ctx.closePath();
+            body(false);
             ctx.moveTo(1.5, 14.5);
             ctx.lineTo(16.5, 14.5);
             break;
@@ -273,6 +323,7 @@ Canvas {
             ctx.lineTo(13, 11.5);
             ctx.arc(9, 11.5, 4, 0, Math.PI);
             ctx.closePath();
+            body(true);
             ctx.moveTo(9, 3);
             ctx.lineTo(9, 7);
             break;
@@ -282,6 +333,7 @@ Canvas {
             ctx.lineTo(16, 13);
             ctx.lineTo(2, 13);
             ctx.closePath();
+            body(true);
             ctx.moveTo(5, 8);
             ctx.lineTo(13, 8);
             ctx.moveTo(6, 10.5);
@@ -289,14 +341,22 @@ Canvas {
             break;
         case "device":
             ctx.arc(9, 9, 6, 0, Math.PI * 2);
+            body(true);
             ctx.moveTo(10, 9);
             ctx.arc(9, 9, 1, 0, Math.PI * 2);
             break;
         case "settings":
-            // Gear: a ring with eight teeth.
-            ctx.arc(9, 9, 2.4, 0, Math.PI * 2);
-            ctx.moveTo(14, 9);
+            // Gear: a ring with eight teeth. Filled: a solid wheel with the middle cut out.
             ctx.arc(9, 9, 5, 0, Math.PI * 2);
+            body(false);
+            if (filled)
+                ctx.globalCompositeOperation = "destination-out";
+            ctx.arc(9, 9, 2.4, 0, Math.PI * 2);
+            if (filled)
+                ctx.fill();
+            ctx.stroke();
+            ctx.globalCompositeOperation = "source-over";
+            ctx.beginPath();
             for (let i = 0; i < 8; i++) {
                 const a = Math.PI * i / 4;
                 ctx.moveTo(9 + 5 * Math.cos(a), 9 + 5 * Math.sin(a));
@@ -315,5 +375,6 @@ Canvas {
             break;
         }
         ctx.stroke();
+        ctx.globalCompositeOperation = "source-over";
     }
 }

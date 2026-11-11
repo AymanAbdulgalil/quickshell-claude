@@ -10,13 +10,13 @@ PanelWindow {
 
     readonly property string barEdge: Theme.layout.barEdge
     readonly property bool atBottom: barEdge === "bottom"
-    readonly property int edge: Theme.layout.barEdge === "top" || atBottom ? Theme.layout.barClearance : Theme.layout.barMargin
+    readonly property int edge: Theme.layout.barEdge === "top" || atBottom ? Theme.layout.barClearance : Theme.layout.panelGapSide
 
     screen: Quickshell.screens.find(s => s.name === Hyprland.focusedMonitor?.name) ?? Quickshell.screens[0]
     visible: Notifications.popups.length > 0
     implicitWidth: Theme.layout.notificationWidth
     // One size, with clicks only on the cards, so a new or closing card never makes the window flicker.
-    implicitHeight: (screen?.height ?? 1080) - edge - Theme.layout.barMargin
+    implicitHeight: (screen?.height ?? 1080) - edge - Theme.layout.panelGapFar
     mask: Region {
         item: stack
     }
@@ -35,7 +35,7 @@ PanelWindow {
     margins {
         top: atBottom ? 0 : edge
         bottom: atBottom ? edge : 0
-        right: barEdge === "right" ? 0 : Theme.layout.barMargin
+        right: barEdge === "right" ? 0 : Theme.layout.panelGapSide
         left: barEdge === "right" ? Theme.layout.barClearance : 0
     }
 

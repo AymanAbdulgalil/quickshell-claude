@@ -17,7 +17,10 @@
             "wallpaper": "/home/ayman/.local/share/backgrounds/arctic_mountains.jpg"
         },
         {
-            "barGap": 6,
+            "barGapEdge": 6,
+            "barGapEnd": 6,
+            "barGapStart": 6,
+            "barRadius": 6,
             "colors": "custom",
             "custom": {
                 "accent": "#1e66f5",
@@ -48,12 +51,17 @@
             "id": "nordSharp",
             "name": "Paper",
             "palette": "rosePine",
+            "panelGapFar": 6,
+            "panelGapSide": 6,
             "wallpaper": "/home/ayman/.local/share/backgrounds/39.jpg",
             "widgetRadius": 8
         },
         {
-            "barGap": 10,
+            "barGapEdge": 10,
+            "barGapEnd": 10,
+            "barGapStart": 10,
             "barPadding": 14,
+            "barRadius": 12,
             "colors": "wallpaper",
             "custom": {
                 "accent": "#1e66f5",
@@ -85,15 +93,23 @@
             "id": "preset1793906702216",
             "name": "Alive",
             "palette": "everforest",
+            "panelGapFar": 10,
+            "panelGapSide": 10,
             "wallpaper": "/home/ayman/.local/share/backgrounds/wallhaven-g79g17_1920x1080.png",
             "widgetRadius": 16
         },
         {
-            "barGap": 10,
+            "barBorder": 1,
+            "barGapEdge": 10,
+            "barGapEnd": 10,
+            "barGapStart": 10,
             "barGroupSpacing": 22,
+            "barHeight": 26,
+            "barIconSize": 12,
             "barItemSpacing": 8,
             "barPadding": 12,
             "barPosition": "top",
+            "barRadius": 0,
             "colors": "palette",
             "curves": [
                 {
@@ -153,6 +169,8 @@
                 "warning": "#df8e1d"
             },
             "dark": true,
+            "fontBar": 12,
+            "fontSmall": 11,
             "hypr": {
                 "decoration:rounding": 0,
                 "general:gaps_in": 7,
@@ -161,15 +179,22 @@
             "id": "preset1793941087895",
             "name": "Deep",
             "palette": "everforest",
-            "panelBarGap": 8,
+            "panelBarGap": 10,
+            "panelBorder": 1,
+            "panelGapFar": 10,
+            "panelGapSide": 10,
+            "panelSpeed": 200,
             "wallpaper": "/home/ayman/.local/share/backgrounds/49.jpg",
             "widgetRadius": 0
         },
         {
+            "barBorder": 1,
             "barGroupSpacing": 18,
             "barHeight": 28,
             "barItemSpacing": 4,
             "barPadding": 12,
+            "barRadius": 10,
+            "barWeight": 400,
             "colors": "palette",
             "cursorSize": 16,
             "cursorTheme": "Adwaita",

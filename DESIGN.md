@@ -9,9 +9,11 @@ Quiet, thin, exact. The desktop belongs to the windows and the wallpaper; the sh
 slide in when asked. It is a precision instrument rather than a dashboard.
 
 1. **Monochrome first.** Text and icons use the foreground color. Color carries meaning, and only in small marks.
-2. **Drawn, not borrowed.** Every icon is drawn on a Canvas. No icon fonts, no image icons in the shell.
+2. **Drawn, not borrowed.** Every icon is drawn on a Canvas. No icon fonts, no image icons in the shell. Each preset picks thin lines, thick lines or
+   filled (`Theme.icons`); an icon's line is `Theme.icons.stroke`, and filled cuts inner details out of a solid body.
+   The theme's **accent element** (`Theme.icons.mark`, `parts/accent/shapes.js`) is its one decorative mark: workspaces, task marks, clock marks.
 3. **On the pixel.** Icons are one unit per pixel, on a 16-unit grid, at whole coordinates. Text uses native rendering.
-4. **Soft transitions.** Panels fade in and out, like windows. Colors change by easing, never by snapping.
+4. **Soft transitions.** Panels fade, slide from the bar, or both, as the preset says. Colors change by easing, never by snapping.
 5. **Everything is a theme.** No color, font, size or duration is written into a widget. Presets decide.
 6. **Idle costs nothing.** Nothing polls, animates or repaints without a visible reason.
 
@@ -49,10 +51,10 @@ Three families per preset: text (`family`), titles (`familyTitle`), monospace (`
 | `small` | 11 | Default: rows, hints, buttons, section captions |
 | `body` | 12 | List titles, inputs |
 | `title` | 14 | Page and panel titles |
-| `bar` | 13 | Everything on the bar |
+| `bar` | 13 | Everything on the bar, in the bar's own family (`barFamily`) and weight (`barWeight`) |
 | `display` | 30 | One large number or time per panel |
 
-Weight: `Theme.fonts.weight` for titles and captions, regular otherwise. Sentence case. No trailing period on a label; a
+Weight: `Theme.fonts.weight` for titles and captions in panels, regular otherwise. Panels may use their own text family (`panelFont`, else the text font). Sentence case. No trailing period on a label; a
 full sentence of help text has one.
 
 ### Space (`Theme.space`)
@@ -67,8 +69,8 @@ its spacing is measured on what is drawn (`Theme.layout.itemSpacing`, `groupSpac
 
 ### Shape (`Theme.shape`)
 
-Three nested radii from the preset's one radius: `panelRadius` (1), `barRadius` (0.72), `controlRadius` (0.57).
-`innerRadius` is `controlRadius - 2`, for a control inside a control. Pills (switches, dots) are full height. A panel has one hairline border.
+`panelRadius` is the preset's panel radius, and `controlRadius` (0.57 of it) follows; `barRadius` is the bar's own. `innerRadius` is `controlRadius - 2`,
+for a control inside a control. Pills (switches, dots) are full height. A panel has one hairline border (`borderWidth`), the bar its own (`barBorderWidth`).
 No shadows in the shell.
 
 ### Motion (`Theme.motion`)
@@ -77,9 +79,11 @@ No shadows in the shell.
 |---|---|---|
 | `quick` | 120 ms | Hover, press, selection |
 | `standard` | 180 ms | State colors, reveals |
-| `panel` | 160 ms | Panels moving and resizing |
+| `panel` | 160 ms | Panels coming, going and resizing |
+| `bar` | 180 ms | The bar's entrance, icons that come and go |
 
-All ease out. A preset can scale them with `motionScale`, and 0 turns them off. Use `Motion` and `ColorMotion`, never a bare
+All ease out unless the preset gives `panel` or `bar` one of its named curves (`bezier`). `panelFade`, `panelSlide`, `barFade` and `barSlide` say which
+movements happen; a panel's card follows `controls/PanelShow`. A preset can scale them with `motionScale`, and 0 turns them off. Use `Motion` and `ColorMotion`, never a bare
 animation. Looping indicators step on a `Timer`, whole steps only, so they do not hold the render loop open at 60 Hz.
 
 ## Components
@@ -89,6 +93,7 @@ Build with these. A new look means a new option on one of them, not a local copy
 | Component | Purpose |
 |---|---|
 | `Label` | All text. Defaults: theme family, `small`, foreground, plain text format |
+| `BarText` | Text on the bar: bar size and weight, in a whole-pixel box as tall as an icon, digits centred |
 | `controls/InteractiveSurface` | Any clickable rectangle: hover, pressed, selected and armed colors, transitions, pointer |
 | `controls/ActionButton` | Text button. `confirm` needs two clicks |
 | `controls/IconButton` | Drawn glyph button |
@@ -97,7 +102,12 @@ Build with these. A new look means a new option on one of them, not a local copy
 | `controls/SettingSection` | Caption and hairline that starts a group |
 | `controls/SettingSwitch`, `SettingStepper`, `Dropdown`, `TextField` | Values |
 | `controls/Hint` | Muted help or empty-state line, wraps |
-| `controls/BarPanel` | Window for everything that opens under the bar or in the middle |
+| `controls/BarPanel` | Window for everything that opens under the bar or in the middle. A control's list can float over it (`popupOwner`) |
+| `controls/AccentMark` | One accent element, any size and color |
+| `timer/TimeWheel` | A number with plus above and minus below (hold repeats) and the wheel; the timer picker |
+| `controls/PanelShow` | How a panel's card comes and goes: fade and slide from the preset, started by hand |
+| `settings/MotionRows` | Fade, slide, duration and curve rows for the bar or the panels |
+| `notes/AutoScrollBar` | Thin scroll bar that shows while scrolling or hovered, then fades; either direction |
 | `power/PanelButton` | Square glyph and label, for the power panel |
 
 ### Interaction states

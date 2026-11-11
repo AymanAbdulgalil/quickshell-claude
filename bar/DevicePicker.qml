@@ -3,83 +3,53 @@ import QtQuick.Layouts
 import ".."
 import "../controls"
 
-// Which speaker or microphone is in use. Opens in place, inside the panel.
-ColumnLayout {
+// Which speaker or microphone is in use. Its list floats over the panel (BarPanel.popupOwner), so the panel keeps the
+// height of its rows instead of saving room for an open list.
+InteractiveSurface {
     id: root
 
     property var devices: []
     property var current: null
-    // "output" or "input". One list open at a time, so the panel's fixed height is enough.
-    required property string which
-    readonly property bool expanded: AudioState.openPicker === which
+    // The BarPanel this sits in, which draws the open list.
+    required property var panel
+    readonly property bool expanded: panel.popupOwner === root
+    // What the floating list reads.
+    readonly property var options: devices.map(d => [d, AudioState.deviceName(d)])
+    readonly property var value: current
 
     signal picked(var node)
 
     Layout.fillWidth: true
-    spacing: Theme.space.xxs
+    implicitHeight: Theme.control.small
+    restColor: Theme.colors.clear
+    onClicked: panel.popupOwner = expanded ? null : root
 
-    InteractiveSurface {
-        Layout.fillWidth: true
-        implicitHeight: Theme.control.small
-        restColor: Theme.colors.clear
-        onClicked: AudioState.openPicker = root.expanded ? "" : root.which
-
-        Label {
-            anchors.left: parent.left
-            anchors.right: arrow.left
-            anchors.leftMargin: Theme.space.m
-            anchors.verticalCenter: parent.verticalCenter
-            elide: Text.ElideRight
-            color: Theme.colors.muted
-            text: AudioState.deviceName(root.current)
-        }
-
-        Part {
-            id: arrow
-
-            anchors.right: parent.right
-            anchors.rightMargin: Theme.space.xs
-            anchors.verticalCenter: parent.verticalCenter
-            slot: "powerGlyph"
-            rotation: root.expanded ? 180 : 0
-
-            readonly property string glyph: "chevron"
-            readonly property color tint: Theme.colors.muted
-            readonly property int iconSize: 12
-
-            Behavior on rotation {
-                Motion {
-                    preset: Theme.motion.quick
-                }
-            }
-        }
+    Label {
+        anchors.left: parent.left
+        anchors.right: arrow.left
+        anchors.leftMargin: Theme.space.m
+        anchors.verticalCenter: parent.verticalCenter
+        elide: Text.ElideRight
+        color: Theme.colors.muted
+        text: AudioState.deviceName(root.current)
     }
 
-    Repeater {
-        model: root.expanded ? root.devices : []
+    Part {
+        id: arrow
 
-        InteractiveSurface {
-            id: device
+        anchors.right: parent.right
+        anchors.rightMargin: Theme.space.xs
+        anchors.verticalCenter: parent.verticalCenter
+        slot: "powerGlyph"
+        rotation: root.expanded ? 180 : 0
 
-            required property var modelData
+        readonly property string glyph: "chevron"
+        readonly property color tint: Theme.colors.muted
+        readonly property int iconSize: 12
 
-            Layout.fillWidth: true
-            implicitHeight: Theme.control.small
-            restColor: Theme.colors.clear
-            selected: modelData === root.current
-            selectedColor: Theme.colors.surfaceHover
-            onClicked: {
-                AudioState.openPicker = "";
-                root.picked(modelData);
-            }
-
-            Label {
-                anchors.fill: parent
-                anchors.leftMargin: Theme.space.m
-                anchors.rightMargin: Theme.space.m
-                verticalAlignment: Text.AlignVCenter
-                elide: Text.ElideRight
-                text: AudioState.deviceName(device.modelData)
+        Behavior on rotation {
+            Motion {
+                preset: Theme.motion.quick
             }
         }
     }

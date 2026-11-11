@@ -1,62 +1,26 @@
 import QtQuick
 import QtQuick.Layouts
-import Quickshell.Io
 import ".."
 import "../controls"
 import "../theming"
 import "../controls/Format.js" as Format
 
-// The bar, panels, type and motion of the shell itself, in the active preset.
+// The bar and the panels of the shell itself, in the active preset: two sections, bar options then panel options
+// (2026-11-11). Each has its own font, weight, corners, border, gaps and motion.
 ColumnLayout {
     id: page
 
     readonly property var preset: ThemePresets.active
-    property var cursors: []
+    readonly property bool vertical: Theme.layout.barVertical
+    readonly property var weights: [[300, "Light"], [400, "Regular"], [500, "Medium"], [600, "Semibold"], [700, "Bold"]]
 
     spacing: Theme.space.xxs
-
-    Process {
-        running: true
-        command: ["sh", "-c", "for d in /usr/share/icons/*/cursors \"$HOME\"/.local/share/icons/*/cursors; do [ -d \"$d\" ] && basename \"$(dirname \"$d\")\"; done | sort -u"]
-
-        stdout: StdioCollector {
-            onStreamFinished: page.cursors = text.split("\n").filter(t => t !== "")
-        }
-    }
 
     PageTitle {
         text: "Bar and panels"
     }
 
-    SettingSection {
-        text: "Type"
-    }
-    ShellNumberRow {
-        label: "Panel text size"
-        field: "fontSmall"
-        options: Format.range(9, 16)
-        format: Format.px
-    }
-    ShellNumberRow {
-        label: "Bar text size"
-        field: "fontBar"
-        options: Format.range(10, 18)
-        format: Format.px
-    }
-    ShellNumberRow {
-        label: "Large numbers"
-        field: "fontDisplay"
-        options: Format.range(20, 48, 2)
-        format: Format.px
-    }
-    SettingRow {
-        label: "Weight"
-        Dropdown {
-            options: [[400, "Regular"], [500, "Medium"], [600, "Semibold"]]
-            value: page.preset.fontWeight
-            onPicked: v => ThemeManager.edit({ fontWeight: v })
-        }
-    }
+    // --- Bar
 
     SettingSection {
         text: "Bar"
@@ -73,6 +37,66 @@ ColumnLayout {
         label: "Height"
         field: "barHeight"
         options: Format.range(24, 48)
+        format: Format.px
+    }
+    FontRow {
+        label: "Font"
+        field: "barFont"
+    }
+    SettingRow {
+        label: "Weight"
+        Dropdown {
+            options: page.weights
+            value: page.preset.barWeight
+            onPicked: v => ThemeManager.edit({ barWeight: v })
+        }
+    }
+    ShellNumberRow {
+        label: "Text size"
+        field: "fontBar"
+        options: Format.range(10, 18)
+        format: Format.px
+    }
+    ShellNumberRow {
+        label: "Icon size"
+        field: "barIconSize"
+        options: Format.range(8, 20)
+        format: Format.px
+    }
+    ShellNumberRow {
+        label: "Corner radius"
+        field: "barRadius"
+        options: Format.range(0, 24)
+        format: Format.px
+    }
+    ShellNumberRow {
+        label: "Border"
+        field: "barBorder"
+        options: Format.range(0, 3)
+        format: Format.px
+    }
+    ShellNumberRow {
+        label: "Gap from the screen edge"
+        field: "barGapEdge"
+        options: Format.range(0, 40)
+        format: Format.px
+    }
+    ShellNumberRow {
+        label: "Gap toward windows"
+        field: "barGapInner"
+        options: Format.range(0, 40)
+        format: Format.px
+    }
+    ShellNumberRow {
+        label: page.vertical ? "Gap at the top" : "Gap at the left"
+        field: "barGapStart"
+        options: Format.range(0, 300)
+        format: Format.px
+    }
+    ShellNumberRow {
+        label: page.vertical ? "Gap at the bottom" : "Gap at the right"
+        field: "barGapEnd"
+        options: Format.range(0, 300)
         format: Format.px
     }
     ShellNumberRow {
@@ -93,26 +117,39 @@ ColumnLayout {
         options: Format.range(8, 40)
         format: Format.px
     }
+    MotionRows {
+        prefix: "bar"
+        slideLabel: "Slide (in at start, icons that come and go)"
+    }
+
+    // --- Panels
 
     SettingSection {
+        Layout.topMargin: Theme.space.l
         text: "Panels"
     }
+    FontRow {
+        label: "Font"
+        field: "panelFont"
+    }
+    SettingRow {
+        label: "Weight of titles"
+        Dropdown {
+            options: page.weights
+            value: page.preset.fontWeight
+            onPicked: v => ThemeManager.edit({ fontWeight: v })
+        }
+    }
     ShellNumberRow {
-        label: "Corner radius"
-        field: "widgetRadius"
-        options: Format.range(0, 24)
+        label: "Text size"
+        field: "fontSmall"
+        options: Format.range(9, 16)
         format: Format.px
     }
     ShellNumberRow {
-        label: "Gap from the bar"
-        field: "panelBarGap"
-        options: Format.range(0, 30)
-        format: Format.px
-    }
-    ShellNumberRow {
-        label: "Border"
-        field: "panelBorder"
-        options: Format.range(0, 3)
+        label: "Large numbers"
+        field: "fontDisplay"
+        options: Format.range(20, 48, 2)
         format: Format.px
     }
     SettingRow {
@@ -123,40 +160,51 @@ ColumnLayout {
             onPicked: v => ThemeManager.edit({ density: v })
         }
     }
-
-    SettingSection {
-        text: "Motion"
+    ShellNumberRow {
+        label: "Corner radius"
+        field: "widgetRadius"
+        options: Format.range(0, 24)
+        format: Format.px
+    }
+    ShellNumberRow {
+        label: "Border"
+        field: "panelBorder"
+        options: Format.range(0, 3)
+        format: Format.px
     }
     SettingRow {
-        label: "Animation speed"
+        label: "Gaps follow the windows'"
+        SettingSwitch {
+            checked: page.preset.panelGapsFollow
+            onToggled: on => ThemeManager.edit({ panelGapsFollow: on })
+        }
+    }
+    // Following the windows, these show the gaps in use and cannot be changed.
+    Repeater {
+        model: [["panelBarGap", "Gap from the bar", "panelBarGap"], ["panelGapSide", "Gap from the screen's sides", "panelGapSide"],
+            ["panelGapFar", "Gap from the far edge", "panelGapFar"], ["panelGapBetween", "Gap between panels", "panelGap"]]
+
+        ShellNumberRow {
+            required property var modelData
+
+            enabled: !page.preset.panelGapsFollow
+            opacity: enabled ? 1 : 0.4
+            label: modelData[1]
+            field: modelData[0]
+            options: Format.range(0, 40)
+            format: v => Format.px(page.preset.panelGapsFollow ? Theme.layout[modelData[2]] : v)
+        }
+    }
+    MotionRows {
+        prefix: "panel"
+        slideLabel: "Slide from the bar"
+    }
+    SettingRow {
+        label: "Speed of all shell animations"
         Dropdown {
             options: [[0, "Off"], [0.6, "Fast"], [1, "Normal"], [1.5, "Slow"]]
             value: page.preset.motionScale
             onPicked: v => ThemeManager.edit({ motionScale: v })
         }
-    }
-    ShellNumberRow {
-        label: "Panels slide in"
-        field: "panelSpeed"
-        options: Format.range(60, 400, 20)
-        format: v => v + " ms"
-    }
-
-    SettingSection {
-        text: "Cursor"
-    }
-    SettingRow {
-        label: "Theme"
-        Dropdown {
-            options: [["", "System default"]].concat(page.cursors.map(c => [c, c]))
-            value: page.preset.cursorTheme
-            onPicked: v => ThemeManager.edit({ cursorTheme: v })
-        }
-    }
-    ShellNumberRow {
-        label: "Size"
-        field: "cursorSize"
-        options: [16, 20, 24, 28, 32, 36, 40, 48]
-        format: Format.px
     }
 }

@@ -20,6 +20,9 @@ PanelWindow {
     property int bodyPadding: Theme.layout.panelPadding
     // A height the card keeps whatever it holds; 0 fits its content. Its list should use Layout.fillHeight.
     property int fixedHeight: 0
+    // A control whose list floats over the panel, like a Dropdown's (DevicePicker). It needs `options` ([value, label]),
+    // `value` and a `picked(value)` signal. The list may reach past the card; it does not make the card taller.
+    property Item popupOwner: null
     // Exclusive: while a panel is open, windows behind it get no keys.
     property int keyboardWhenOpen: WlrKeyboardFocus.Exclusive
     default property alias body: column.data
@@ -39,6 +42,7 @@ PanelWindow {
 
     onOpenChanged: shown = open
     onShownChanged: {
+        popupOwner = null;
         if (shown) {
             card.forceActiveFocus();
             panelOpened();
@@ -49,16 +53,20 @@ PanelWindow {
     Component.onCompleted: Qt.callLater(() => shown = open)
 
     screen: homeScreen
-    visible: shown || card.opacity > 0
+    visible: shown || show.progress > 0
     implicitWidth: cardWidth
-    implicitHeight: centered ? (screen?.height ?? 1080) : (screen?.height ?? 1080) - (vertical ? 2 * Theme.layout.barMargin : barEdge + Theme.layout.barMargin)
+    implicitHeight: centered ? (screen?.height ?? 1080) : (screen?.height ?? 1080) - (vertical ? 2 * Theme.layout.panelGapSide : barEdge + Theme.layout.panelGapFar)
     mask: Region {
         item: card
+
+        Region {
+            item: popup.item
+        }
     }
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Top
-    WlrLayershell.keyboardFocus: open ? keyboardWhenOpen : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: keyboardWhenOpen === WlrKeyboardFocus.Exclusive ? Panels.keyboardMode(open) : open ? keyboardWhenOpen : WlrKeyboardFocus.None
 
     anchors {
         top: centered || edge !== "bottom"
@@ -68,10 +76,10 @@ PanelWindow {
     }
 
     margins {
-        top: centered ? 0 : edge === "top" ? barEdge : edge === "bottom" ? 0 : Theme.layout.barMargin
-        bottom: centered ? 0 : edge === "bottom" ? barEdge : edge === "top" ? 0 : Theme.layout.barMargin
-        left: edge === "left" ? barEdge : placement === "anchor" && !vertical ? Math.max(Theme.layout.barMargin, Math.min((screen?.width ?? 1920) - cardWidth - Theme.layout.barMargin, Panels.anchorX - cardWidth / 2)) : 0
-        right: edge === "right" ? barEdge : placement === "right" && !vertical ? Theme.layout.barMargin : 0
+        top: centered ? 0 : edge === "top" ? barEdge : edge === "bottom" ? 0 : Theme.layout.panelGapSide
+        bottom: centered ? 0 : edge === "bottom" ? barEdge : edge === "top" ? 0 : Theme.layout.panelGapSide
+        left: edge === "left" ? barEdge : placement === "anchor" && !vertical ? Math.max(Theme.layout.panelGapSide, Math.min((screen?.width ?? 1920) - cardWidth - Theme.layout.panelGapSide, Panels.anchorX - cardWidth / 2)) : 0
+        right: edge === "right" ? barEdge : placement === "right" && !vertical ? Theme.layout.panelGapSide : 0
     }
 
     // Clicking anywhere outside the panel and the bar closes it.
@@ -89,10 +97,14 @@ PanelWindow {
             if (panel.centered)
                 return Math.round((panel.height - height) / 2);
             if (panel.vertical)
-                return panel.placement === "anchor" ? Math.max(0, Math.min(panel.height - height, Panels.anchorX - Theme.layout.barMargin - height / 2)) : panel.height - height;
+                return panel.placement === "anchor" ? Math.max(0, Math.min(panel.height - height, Panels.anchorX - Theme.layout.panelGapSide - height / 2)) : panel.height - height;
             return panel.atBottom ? panel.height - height : 0;
         }
-        opacity: panel.shown ? 1 : 0
+        opacity: show.fade
+        transform: Translate {
+            x: show.dx
+            y: show.dy
+        }
         implicitHeight: panel.fixedHeight > 0 ? panel.fixedHeight : column.implicitHeight + 2 * panel.bodyPadding
         height: implicitHeight
         clip: true
@@ -102,7 +114,12 @@ PanelWindow {
         border.width: Theme.shape.borderWidth
         focus: true
 
-        Keys.onEscapePressed: Panels.close()
+        Keys.onEscapePressed: {
+            if (panel.popupOwner)
+                panel.popupOwner = null;
+            else
+                Panels.close();
+        }
 
         Behavior on height {
             Motion {
@@ -110,10 +127,13 @@ PanelWindow {
             }
         }
 
-        Behavior on opacity {
-            Motion {
-                preset: Theme.motion.panel
-            }
+        // Under the bar it slides its whole size plus the gap, so it comes out from the bar; the window clips the rest.
+        PanelShow {
+            id: show
+
+            shown: panel.shown
+            from: panel.centered ? (Theme.layout.barEdge === "bottom" ? "bottom" : "top") : Theme.layout.barEdge
+            distance: panel.centered ? Theme.space.xxl * 2 : (panel.vertical ? card.width : card.height) + Theme.layout.panelBarGap
         }
 
         ColumnLayout {
@@ -125,6 +145,43 @@ PanelWindow {
             anchors.margins: panel.bodyPadding
             height: panel.fixedHeight > 0 ? panel.fixedHeight - 2 * panel.bodyPadding : implicitHeight
             spacing: panel.bodySpacing
+        }
+    }
+
+    // The floating list of popupOwner, under it and over everything else. A click elsewhere on the card closes it.
+    MouseArea {
+        anchors.fill: card
+        visible: panel.popupOwner !== null
+        onPressed: panel.popupOwner = null
+        onWheel: panel.popupOwner = null
+    }
+
+    Loader {
+        id: popup
+
+        readonly property Item owner: panel.popupOwner
+
+        active: owner !== null
+        opacity: card.opacity
+        x: {
+            card.width;
+            return owner ? owner.mapToItem(card, 0, 0).x : 0;
+        }
+        y: {
+            card.y;
+            card.height;
+            return owner ? card.y + owner.mapToItem(card, 0, owner.height).y + Theme.space.xxs : 0;
+        }
+        width: owner?.width ?? 0
+
+        sourceComponent: DropdownList {
+            options: popup.owner?.options ?? []
+            value: popup.owner?.value
+            onPicked: v => {
+                const owner = popup.owner;
+                panel.popupOwner = null;
+                owner.picked(v);
+            }
         }
     }
 }

@@ -1,9 +1,11 @@
 import QtQuick
 import "../.."
 
-// Microphone whose capsule fills with the level. Muted adds a slash.
+// Microphone whose capsule fills with the level. Muted adds a slash. Filled: the part above the level is faint, not empty.
 // Inputs: level (0 to 1), tint, iconSize, off (muted)
 Canvas {
+    readonly property var iconWatch: [Theme.icons.style]
+    onIconWatchChanged: requestPaint()
     // Colors below come from the theme, so repaint when it changes.
     readonly property var themeWatch: Theme.palette
     onThemeWatchChanged: requestPaint()
@@ -39,7 +41,7 @@ Canvas {
         ctx.translate(-8, -8);
         ctx.strokeStyle = tint;
         ctx.fillStyle = tint;
-        ctx.lineWidth = 1.5;
+        ctx.lineWidth = Theme.icons.stroke;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
 
@@ -53,6 +55,12 @@ Canvas {
         };
         capsule();
         ctx.stroke();
+        if (Theme.icons.filled) {
+            ctx.globalAlpha = 0.35;
+            capsule();
+            ctx.fill();
+            ctx.globalAlpha = 1;
+        }
         const top = 1 + 9 * (1 - shown / 10);
         ctx.save();
         ctx.beginPath();

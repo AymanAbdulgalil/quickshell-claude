@@ -14,7 +14,7 @@ PanelWindow {
     property var homeScreen
     readonly property bool open: Panels.name === "themes" && Panels.screen === homeScreen
     readonly property var shown: ThemePresets.all
-    readonly property int cardWidth: Math.round(((screen?.width ?? 1920) - 2 * Theme.layout.barMargin) * 0.75)
+    readonly property int cardWidth: Math.round(((screen?.width ?? 1920) - 2 * Theme.layout.panelGapSide) * 0.75)
 
     function pick(preset) {
         if (preset)
@@ -41,16 +41,16 @@ PanelWindow {
     Component.onCompleted: Qt.callLater(() => revealed = open)
 
     screen: homeScreen
-    visible: revealed || card.opacity > 0
+    visible: revealed || show.progress > 0
     implicitWidth: cardWidth
     implicitHeight: card.height
     color: "transparent"
     exclusionMode: ExclusionMode.Ignore
     WlrLayershell.layer: WlrLayer.Overlay
-    WlrLayershell.keyboardFocus: open ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
+    WlrLayershell.keyboardFocus: Panels.keyboardMode(open)
 
     // Stands clear of the bar when the bar is at the bottom.
-    margins.bottom: Theme.layout.barAtBottom ? Theme.layout.barClearance : Theme.layout.barMargin
+    margins.bottom: Theme.layout.barAtBottom ? Theme.layout.barClearance : Theme.layout.panelGapFar
 
     anchors {
         bottom: true
@@ -71,20 +71,26 @@ PanelWindow {
         color: Theme.colors.surface
         border.color: Theme.colors.border
         border.width: Theme.shape.borderWidth
-        opacity: panel.revealed ? 1 : 0
+        opacity: show.fade
+        transform: Translate {
+            x: show.dx
+            y: show.dy
+        }
         focus: true
+
+        PanelShow {
+            id: show
+
+            shown: panel.revealed
+            from: "bottom"
+            distance: card.height + Theme.layout.panelGapFar
+        }
 
         Keys.onEscapePressed: Panels.close()
         Keys.onLeftPressed: panel.move(-1)
         Keys.onRightPressed: panel.move(1)
         Keys.onReturnPressed: panel.pick(panel.shown[ring.currentIndex])
         Keys.onEnterPressed: panel.pick(panel.shown[ring.currentIndex])
-
-        Behavior on opacity {
-            Motion {
-                preset: Theme.motion.panel
-            }
-        }
 
         ColumnLayout {
             id: body

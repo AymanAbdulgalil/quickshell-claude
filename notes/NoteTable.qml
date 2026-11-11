@@ -1,7 +1,9 @@
 import QtQuick
 import ".."
 
-// A Markdown table drawn over its hidden source lines while it is not being edited. Scrolls sideways when wider than the note.
+// A Markdown table drawn over its hidden source lines while it is not being edited. When it is wider than the note
+// (wrapped), it scrolls sideways on its own: NoteEditor routes the wheel here and keeps the offsets, so they survive a
+// rebuild. Unwrapped, it is drawn whole and the note itself scrolls.
 Item {
     id: root
 
@@ -10,98 +12,104 @@ Item {
 
     readonly property int key: modelData.key
     readonly property real most: Math.max(0, modelData.total - width)
-    property real offset: Math.min(offsets[key] ?? 0, most)
+    readonly property real offset: Math.min(offsets[key] ?? 0, most)
+
+    signal scrolled(real offset)
 
     x: modelData.x
     y: modelData.y
     width: Math.min(modelData.total, modelData.available)
     height: modelData.height
-    clip: true
-
-    function scroll(by) {
-        offset = Math.max(0, Math.min(most, offset + by));
-        offsets[key] = offset;
-    }
-
-    WheelHandler {
-        orientation: Qt.Horizontal
-        onWheel: event => root.scroll(-event.angleDelta.x / 2)
-    }
-
-    WheelHandler {
-        acceptedModifiers: Qt.ShiftModifier
-        onWheel: event => root.scroll(-event.angleDelta.y / 2)
-    }
 
     Item {
-        x: -root.offset
-        width: root.modelData.total
-        height: parent.height
+        anchors.fill: parent
+        clip: true
 
-        Rectangle {
-            width: parent.width
-            height: root.modelData.rows[0].height
-            color: Theme.colors.surfaceHover
-        }
+        Item {
+            x: -root.offset
+            width: root.modelData.total
+            height: parent.height
 
-        Repeater {
-            model: root.modelData.rows
-
-            Item {
-                id: row
-
-                required property var modelData
-                required property int index
-
-                y: modelData.y
+            Rectangle {
                 width: parent.width
-                height: modelData.height
+                height: root.modelData.rows[0].height
+                color: Theme.colors.surfaceHover
+            }
 
-                Rectangle {
-                    visible: row.index > 0
+            Repeater {
+                model: root.modelData.rows
+
+                Item {
+                    id: row
+
+                    required property var modelData
+                    required property int index
+
+                    y: modelData.y
                     width: parent.width
-                    height: 1
-                    color: Theme.colors.border
-                }
+                    height: modelData.height
 
-                Repeater {
-                    model: row.modelData.cells
+                    Rectangle {
+                        visible: row.index > 0
+                        width: parent.width
+                        height: 1
+                        color: Theme.colors.border
+                    }
 
-                    Label {
-                        required property string modelData
-                        required property int index
+                    Repeater {
+                        model: row.modelData.cells
 
-                        x: root.modelData.columns[index] + Theme.space.m
-                        anchors.verticalCenter: parent.verticalCenter
-                        textFormat: Text.StyledText
-                        text: modelData
-                        font.family: Theme.fonts.familyMono
-                        font.pixelSize: Theme.fonts.body
-                        font.bold: row.index === 0
-                        color: row.index === 0 ? Theme.colors.foregroundStrong : Theme.colors.foreground
+                        Label {
+                            required property string modelData
+                            required property int index
+
+                            x: root.modelData.columns[index] + Theme.space.m
+                            anchors.verticalCenter: parent.verticalCenter
+                            textFormat: Text.StyledText
+                            text: modelData
+                            font.family: Theme.fonts.familyMono
+                            font.pixelSize: Theme.fonts.body
+                            font.bold: row.index === 0
+                            color: row.index === 0 ? Theme.colors.foregroundStrong : Theme.colors.foreground
+                        }
                     }
                 }
             }
-        }
 
-        Repeater {
-            model: root.modelData.columns.slice(1, -1)
+            Repeater {
+                model: root.modelData.columns.slice(1, -1)
+
+                Rectangle {
+                    required property var modelData
+
+                    x: modelData
+                    width: 1
+                    height: parent.height
+                    color: Theme.colors.border
+                }
+            }
 
             Rectangle {
-                required property var modelData
-
-                x: modelData
-                width: 1
-                height: parent.height
-                color: Theme.colors.border
+                anchors.fill: parent
+                color: Theme.colors.clear
+                border.color: Theme.colors.border
+                border.width: 1
             }
         }
+    }
 
-        Rectangle {
-            anchors.fill: parent
-            color: Theme.colors.clear
-            border.color: Theme.colors.border
-            border.width: 1
-        }
+    // Just under the table, so it never covers the last row.
+    AutoScrollBar {
+        id: bar
+
+        horizontal: true
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.bottom
+        height: Theme.space.s
+        contentSize: root.modelData.total
+        viewSize: root.width
+        position: root.offset
+        onMoved: p => root.scrolled(p)
     }
 }
